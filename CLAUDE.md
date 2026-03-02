@@ -62,3 +62,77 @@ If you are blocked or uncertain, say so clearly rather than shipping something s
 ## Project: Freeweight
 
 This is an early-stage startup. Every line of code is technical debt until proven otherwise. Treat the codebase like it will be read by a skeptical senior engineer on their first day — because it will be.
+
+---
+
+## Codebase Architecture
+
+### Two-Part System
+
+**Landing Page** (`/` root)
+- Vanilla HTML/CSS/JS marketing site with waitlist signup
+- No build required — edit and refresh
+- Files: `index.html`, `styles.css`, `script.js`
+- Runs directly in browser or via any static file server
+
+**UI Mockups** (`/ui-mockups/`)
+- React + TypeScript interactive demo
+- Tech: React 18, Vite, Tailwind CSS, shadcn/ui components
+- Builds to `/demo/` directory
+- Landing page embeds this via iframes using hash routing
+
+### How They Connect
+
+The landing page embeds the demo app in iframes:
+- Athlete view: `demo/index.html#/athlete`
+- Coach view: `demo/index.html#/coach`
+
+Hash-based routing (not browser routing) enables iframe embedding without server config.
+
+### Data Architecture
+
+**No backend.** All data is hardcoded in React components. This is a static prototype with mock interactions via `useState`. No API calls, no database.
+
+---
+
+## Development Workflow
+
+### Working on Landing Page
+
+No build needed. Edit `index.html`, `styles.css`, or `script.js` and refresh browser.
+
+Test locally:
+```bash
+python -m http.server 8000
+# or: npx serve .
+```
+
+### Working on UI Mockups (Demo)
+
+```bash
+cd ui-mockups
+pnpm install      # use pnpm, not npm
+pnpm run dev      # starts Vite dev server
+```
+
+**Production build:**
+```bash
+cd ui-mockups
+pnpm run build    # outputs to dist/
+# Manually copy dist/ contents to /demo/ for landing page integration
+```
+
+**Critical:** The landing page loads `/demo/` (committed build artifacts). After rebuilding ui-mockups, you must manually copy the build output to `/demo/` for changes to appear on the landing page.
+
+---
+
+## Design System
+
+Color palette and typography are defined as CSS variables in `/styles.css` and documented in `/STYLE_GUIDE.md`. Follow these conventions:
+
+- Primary: `#B4F000` (lime green)
+- Background: `#14181C` (dark)
+- Text: `#E6EDF3` (light)
+- Fonts: Montserrat (headings), Roboto (body)
+
+Match existing patterns. Mobile-first responsive design.
