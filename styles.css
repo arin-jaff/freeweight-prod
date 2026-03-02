@@ -328,8 +328,8 @@ small {
 }
 
 /* Feature Cards */
-.feature {
-  margin-bottom: 0;
+.card.feature {
+  margin-bottom: 1.5rem !important;
 }
 
 .feature h3 {
@@ -422,6 +422,109 @@ small {
   transform: scale(1.03) rotate(1deg);
   box-shadow: 0 12px 32px rgba(180, 240, 0, 0.15);
   border-color: rgba(180, 240, 0, 0.4);
+}
+
+.feature-iframe {
+  width: 100%;
+  max-width: 500px;
+  min-height: 900px;
+  height: 900px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(180, 240, 0, 0.2);
+  transition: all 0.4s ease;
+  background-color: #14181C;
+  display: block;
+}
+
+.feature-iframe:hover {
+  box-shadow: 0 12px 32px rgba(180, 240, 0, 0.15);
+  border-color: rgba(180, 240, 0, 0.4);
+}
+
+/* Mobile adjustments for iframe */
+@media (max-width: 480px) {
+  .feature-iframe {
+    height: 700px;
+    min-height: 700px;
+  }
+}
+
+/* View Selector Section */
+.view-selector {
+  text-align: center;
+}
+
+.view-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  flex-wrap: wrap;
+}
+
+.view-tab {
+  padding: 0.875rem 2rem;
+  background-color: rgba(230, 237, 243, 0.05);
+  color: var(--color-text);
+  border: 2px solid rgba(230, 237, 243, 0.2);
+  border-radius: 10px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-family: 'Montserrat', 'Roboto', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.view-tab:hover {
+  background-color: rgba(230, 237, 243, 0.08);
+  border-color: rgba(180, 240, 0, 0.5);
+}
+
+.view-tab.active {
+  background-color: var(--color-primary);
+  color: var(--color-background);
+  border-color: var(--color-primary);
+}
+
+.view-content {
+  position: relative;
+  width: 100%;
+  min-height: 900px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.view-panel {
+  display: none;
+  width: 100%;
+  max-width: 1000px;
+  justify-content: center;
+  align-items: center;
+}
+
+.view-panel.active {
+  display: flex;
+}
+
+.demo-iframe {
+  width: 100%;
+  max-width: 500px;
+  height: 900px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(180, 240, 0, 0.2);
+  background-color: #14181C;
+}
+
+.demo-image {
+  width: 100%;
+  max-width: 700px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(180, 240, 0, 0.2);
 }
 
 /* Footer */
