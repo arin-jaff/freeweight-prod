@@ -67,31 +67,40 @@ This is an early-stage startup. Every line of code is technical debt until prove
 
 ## Codebase Architecture
 
-### Two-Part System
+### Three-Part System
 
-**Landing Page** (`/` root)
+**Landing Page** (`/landing/`)
 - Vanilla HTML/CSS/JS marketing site with waitlist signup
 - No build required — edit and refresh
-- Files: `index.html`, `styles.css`, `script.js`
-- Runs directly in browser or via any static file server
+- Contains UI mockups (demo) embedded via iframes
+- Served at root path `/` in production
 
-**UI Mockups** (`/ui-mockups/`)
-- React + TypeScript interactive demo
-- Tech: React 18, Vite, Tailwind CSS, shadcn/ui components
-- Builds to `/demo/` directory
-- Landing page embeds this via iframes using hash routing
+**Backend** (`/backend/`)
+- FastAPI + PostgreSQL + SQLAlchemy
+- RESTful API for coaches and athletes
+- JWT authentication
+- Database migrations via Alembic
+- Managed with `uv` for dependencies
 
-### How They Connect
+**Frontend** (coming soon: `/frontend/`)
+- React + TypeScript production web app
+- Will replace UI mockups with real functionality
+- Connects to FastAPI backend
 
-The landing page embeds the demo app in iframes:
-- Athlete view: `demo/index.html#/athlete`
-- Coach view: `demo/index.html#/coach`
+### Database Schema
 
-Hash-based routing (not browser routing) enables iframe embedding without server config.
+Key models:
+- `User` - Athletes and coaches (single table with user_type)
+- `AthleteMax` - Recorded max lifts per athlete
+- `Group` / `Subgroup` - Team organization
+- `Program` - Training programs created by coaches
+- `ProgramAssignment` - Links programs to athletes/groups/subgroups
+- `Workout` - Individual workout sessions
+- `Exercise` - Exercises within a workout
+- `WorkoutLog` - Athlete's completed workout records
+- `SetLog` - Individual set performance data
 
-### Data Architecture
-
-**No backend.** All data is hardcoded in React components. This is a static prototype with mock interactions via `useState`. No API calls, no database.
+See [backend/app/models.py](backend/app/models.py) for full schema.
 
 ---
 
@@ -99,30 +108,36 @@ Hash-based routing (not browser routing) enables iframe embedding without server
 
 ### Working on Landing Page
 
-No build needed. Edit `index.html`, `styles.css`, or `script.js` and refresh browser.
-
-Test locally:
 ```bash
-python -m http.server 8000
-# or: npx serve .
+cd landing
+python -m http.server 8000  # or: npx serve .
 ```
 
-### Working on UI Mockups (Demo)
+No build needed. Edit and refresh.
+
+### Working on Backend
 
 ```bash
-cd ui-mockups
-pnpm install      # use pnpm, not npm
-pnpm run dev      # starts Vite dev server
+cd backend
+cp .env.example .env        # First time only - configure DATABASE_URL and SECRET_KEY
+uv sync                     # Install dependencies
+createdb freeweight         # Create PostgreSQL database (first time only)
+uv run alembic upgrade head # Run migrations
+uv run uvicorn app.main:app --reload  # Start dev server
 ```
 
-**Production build:**
+API: `http://localhost:8000`
+Docs: `http://localhost:8000/docs`
+
+**Database migrations:**
 ```bash
-cd ui-mockups
-pnpm run build    # outputs to dist/
-# Manually copy dist/ contents to /demo/ for landing page integration
+uv run alembic revision --autogenerate -m "description"  # Create migration
+uv run alembic upgrade head                              # Apply migrations
 ```
 
-**Critical:** The landing page loads `/demo/` (committed build artifacts). After rebuilding ui-mockups, you must manually copy the build output to `/demo/` for changes to appear on the landing page.
+### Working on Frontend
+
+Coming soon. Will be a React + TypeScript app consuming the FastAPI backend.
 
 ---
 
