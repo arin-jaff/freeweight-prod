@@ -665,6 +665,109 @@ small {
   }
 }
 
+/* ============================================
+   HERO SPLIT LAYOUT (demo left, waitlist right)
+   ============================================ */
+
+.hero-split {
+  text-align: left;
+  padding: 3rem 0 2rem;
+}
+
+.hero-split .container {
+  max-width: 1200px;
+}
+
+.hero-split-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.hero-demo-col {
+  width: 100%;
+}
+
+.hero-view-content {
+  width: 100%;
+  display: block;
+}
+
+.hero-view-content .view-panel {
+  display: none;
+  width: 100%;
+}
+
+.hero-view-content .view-panel.active {
+  display: block;
+}
+
+.hero-demo-iframe {
+  width: 100%;
+  max-width: 500px;
+  height: 900px;
+}
+
+.hero-content-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+}
+
+.hero-content-col .hero-tagline {
+  margin-bottom: 1rem;
+}
+
+.hero-form-container {
+  max-width: 100%;
+  margin: 0;
+  margin-top: 1.5rem;
+}
+
+@media (min-width: 900px) {
+  .hero-split {
+    padding: 4rem 0 3rem;
+  }
+
+  .hero-split-container {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 4rem;
+  }
+
+  .hero-demo-col {
+    flex: 0 0 auto;
+    width: 500px;
+  }
+
+  .hero-content-col {
+    padding-top: 1.5rem;
+  }
+}
+
+/* ============================================
+   COMPETITOR LOGOS
+   ============================================ */
+
+.competitor-logos {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.competitor-logo {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.75;
+  border-radius: 4px;
+}
+
 /* Mobile adjustments (below 480px) */
 @media (max-width: 480px) {
   .hero {
