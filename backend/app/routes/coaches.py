@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from datetime import datetime, timedelta
 from typing import List
 from ..database import get_db
 from ..auth import get_current_coach
-from ..models import User, Group, Subgroup, WorkoutLog
+from ..models import User, Group, Subgroup, WorkoutLog, AthleteMax, Workout
 from ..schemas.coach import (
     DashboardResponse,
     RosterResponse,
@@ -134,3 +133,47 @@ def create_subgroup(
         name=new_subgroup.name,
         training_focus=new_subgroup.training_focus
     )
+
+
+@router.get("/athletes/{athlete_id}")
+def get_athlete_detail(
+    athlete_id: int,
+    current_coach: User = Depends(get_current_coach),
+    db: Session = Depends(get_db)
+):
+    athlete = db.query(User).filter(User.id == athlete_id).first()
+    if not athlete or athlete not in current_coach.coached_athletes:
+        raise HTTPException(status_code=404, detail="Athlete not found in your roster")
+
+    maxes = db.query(AthleteMax).filter(
+        AthleteMax.athlete_id == athlete_id
+    ).order_by(AthleteMax.exercise_name).all()
+
+    recent_logs = db.query(WorkoutLog).filter(
+        WorkoutLog.athlete_id == athlete_id
+    ).order_by(WorkoutLog.created_at.desc()).limit(10).all()
+
+    log_data = []
+    for log in recent_logs:
+        workout = db.query(Workout).filter(Workout.id == log.workout_id).first()
+        log_data.append({
+            "workout_name": workout.name if workout else "Unknown",
+            "scheduled_date": (workout.scheduled_date if workout else log.created_at).isoformat(),
+            "is_completed": log.is_completed,
+            "is_flagged": log.is_flagged,
+            "flag_reason": log.flag_reason,
+        })
+
+    return {
+        "id": athlete.id,
+        "name": athlete.name,
+        "email": athlete.email,
+        "sport": athlete.sport,
+        "team": athlete.team,
+        "training_goals": athlete.training_goals,
+        "maxes": [
+            {"exercise_name": m.exercise_name, "max_weight": m.max_weight, "unit": m.unit}
+            for m in maxes
+        ],
+        "recent_logs": log_data,
+    }

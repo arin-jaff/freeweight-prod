@@ -1,13 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { authApi, LoginRequest, SignupRequest } from '../api/endpoints';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  user_type: 'athlete' | 'coach';
-}
+import { authApi, LoginRequest, SignupRequest, User } from '../api/endpoints';
 
 interface AuthContextType {
   user: User | null;
@@ -34,7 +27,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const response = await authApi.me();
         setUser(response.data);
       }
-    } catch (error) {
+    } catch {
       await SecureStore.deleteItemAsync('auth_token');
     } finally {
       setLoading(false);
@@ -42,15 +35,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const login = async (data: LoginRequest) => {
-    const response = await authApi.login(data);
-    await SecureStore.setItemAsync('auth_token', response.data.access_token);
-    setUser(response.data.user);
+    const tokenRes = await authApi.login(data);
+    await SecureStore.setItemAsync('auth_token', tokenRes.data.access_token);
+    const meRes = await authApi.me();
+    setUser(meRes.data);
   };
 
   const signup = async (data: SignupRequest) => {
-    const response = await authApi.signup(data);
-    await SecureStore.setItemAsync('auth_token', response.data.access_token);
-    setUser(response.data.user);
+    const tokenRes = await authApi.signup(data);
+    await SecureStore.setItemAsync('auth_token', tokenRes.data.access_token);
+    const meRes = await authApi.me();
+    setUser(meRes.data);
   };
 
   const logout = async () => {

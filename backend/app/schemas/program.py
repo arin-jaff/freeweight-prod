@@ -50,6 +50,7 @@ class ProgramResponse(BaseModel):
     description: Optional[str] = None
     created_at: datetime
     workouts: List[WorkoutResponse]
+    workout_count: int = 0
 
     class Config:
         from_attributes = True
