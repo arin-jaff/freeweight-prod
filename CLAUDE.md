@@ -19,6 +19,7 @@ Do not over-engineer. Do not add abstraction layers that aren't immediately nece
 - Do not add comments that restate what the code does. Comments explain *why*, not *what*.
 - If you see something unrelated that is clearly wrong, note it in your response but do not fix it unless asked.
 - Never introduce a new library or dependency to solve a problem that can be reasonably solved with what already exists.
+- When making a change, before you can mark the task as completed, create a full test suite that demonstrates all functionality including edge cases, and deletes it once the user is satisfied
 
 ---
 
