@@ -1,6 +1,6 @@
 # Freeweight - Next Steps
 
-Last updated: March 2, 2026
+Last updated: March 3, 2026
 
 ---
 
@@ -11,6 +11,7 @@ Last updated: March 2, 2026
 1. **Repository Structure**
    - `/landing/` - Marketing site with UI mockups
    - `/backend/` - FastAPI production backend
+   - `/frontend/` - React Native (Expo) mobile app
    - `/mvp_spec.md` - Complete product specification
 
 2. **Backend Infrastructure**
@@ -21,7 +22,22 @@ Last updated: March 2, 2026
    - Python package management via `uv`
    - Running on `http://localhost:8001`
 
-3. **Database Tables Created**
+3. **Backend API - Complete** ✅
+   - **Authentication** (`/api/auth`) - Signup, login, get current user
+   - **Coach Routes** (`/api/coaches`) - Dashboard, roster, invites, groups
+   - **Program Builder** (`/api/programs`) - Create programs, workouts, exercises, assignments
+   - **Athlete Routes** (`/api/athletes`) - Onboarding, calendar, workout logging, progress tracking
+   - All endpoints functional with proper auth, error handling, validation
+   - API docs at http://localhost:8001/docs
+
+4. **Frontend App - Scaffolded** ✅
+   - React Native + Expo + TypeScript
+   - Navigation configured (React Navigation)
+   - Auth context and API client set up
+   - Placeholder screens for auth, athlete, and coach views
+   - Ready for UI development
+
+5. **Database Tables**
    - `users` - Athletes and coaches
    - `athlete_maxes` - Recorded lifts per athlete
    - `groups` / `subgroups` - Team organization
@@ -32,159 +48,56 @@ Last updated: March 2, 2026
    - `workout_logs` - Athlete's completed workout records
    - `set_logs` - Individual set performance data
 
-4. **Documentation**
+6. **Documentation**
    - [CLAUDE.md](CLAUDE.md) - Coding guidelines and architecture
    - [backend/README.md](backend/README.md) - Backend setup and workflows
+   - [frontend/README.md](frontend/README.md) - Frontend setup instructions
    - [STYLE_GUIDE.md](STYLE_GUIDE.md) - Design system
 
 ---
 
-## Next: Build the Mobile App
+## What Just Happened
 
-### Recommended Approach: React Native (Expo)
+Four parallel agents built the entire backend API and scaffolded the frontend in one session:
 
-**Why:**
-- Single codebase for iOS + Android + Web
-- Leverage existing React/TypeScript knowledge
-- Fast development with hot reload
-- Easy to publish and iterate
+1. **Auth Agent** - Built signup, login, JWT authentication
+2. **Coach Agent** - Built dashboard, roster, program builder, assignments
+3. **Athlete Agent** - Built onboarding, calendar, workout logging, progress
+4. **Frontend Agent** - Scaffolded React Native app with navigation and API setup
 
-**Tech Stack:**
-- React Native + Expo
-- TypeScript
-- React Navigation (routing)
-- Axios (API calls)
-- React Query (data fetching/caching)
-- Expo SecureStore (token storage)
-- Expo Notifications (daily reminders)
-
-### Setup Commands
-
-```bash
-# Create the app
-npx create-expo-app@latest frontend --template blank-typescript
-
-# Install core dependencies
-cd frontend
-npm install @react-navigation/native @react-navigation/native-stack
-npm install axios react-hook-form @tanstack/react-query
-npx expo install expo-secure-store expo-notifications
-
-# Run on iOS
-npx expo start --ios
-
-# Run on Android
-npx expo start --android
-```
+All code follows CLAUDE.md guidelines: minimal, correct, clean, production-ready.
 
 ---
 
-## Next: Build Backend API Endpoints
+## Next: Build the Frontend UI
 
-Before the frontend can work, we need API endpoints. Priority order:
+The backend is complete and tested. Now we need to build out the React Native screens.
 
-### 1. Authentication Routes (`/api/auth`)
-- `POST /api/auth/signup` - Create new user (athlete or coach)
-- `POST /api/auth/login` - Email/password login, return JWT
-- `GET /api/auth/me` - Get current user profile
+### Priority Order
 
-### 2. Onboarding Routes
-- `POST /api/athletes/onboarding` - Complete athlete onboarding
-- `POST /api/coaches/onboarding` - Complete coach onboarding
-- `PUT /api/athletes/{id}/maxes` - Set/update athlete maxes
+**Phase 1: Authentication Flow**
+1. Login screen - Email/password form
+2. Signup screen - User type selection + onboarding
+3. Onboarding screens - Athlete/coach specific fields
 
-### 3. Coach Routes (`/api/coaches`)
-- `GET /api/coaches/dashboard` - Dashboard stats
-- `GET /api/coaches/roster` - View all athletes
-- `POST /api/coaches/invite` - Generate athlete invite link
-- `POST /api/coaches/groups` - Create group
-- `POST /api/coaches/groups/{id}/subgroups` - Create subgroup
+**Phase 2: Athlete Experience**
+1. Home screen - Today's workout card + calendar
+2. Workout screen - Guided workout with set logging
+3. Exercise detail - Video, notes, target weights
+4. Progress screen - Max strength charts
 
-### 4. Program Builder Routes (`/api/programs`)
-- `POST /api/programs` - Create program
-- `GET /api/programs/{id}` - View program
-- `POST /api/programs/{id}/workouts` - Add workout to program
-- `POST /api/workouts/{id}/exercises` - Add exercise to workout
-- `POST /api/programs/{id}/assign` - Assign to athlete/group/subgroup
+**Phase 3: Coach Experience**
+1. Dashboard - Completion stats, flagged athletes
+2. Roster - Athlete list with groups/subgroups
+3. Program builder - Create workouts and exercises
+4. Assignment flow - Assign to athletes/groups
+5. Athlete detail - View individual progress
 
-### 5. Athlete Routes (`/api/athletes`)
-- `GET /api/athletes/calendar` - View scheduled workouts
-- `GET /api/athletes/workouts/today` - Get today's workout
-- `POST /api/athletes/workouts/{id}/start` - Start workout
-- `POST /api/athletes/workouts/{id}/sets` - Log set performance
-- `POST /api/athletes/workouts/{id}/complete` - Complete workout
-- `POST /api/athletes/workouts/{id}/flag` - Flag issue/injury
-
-### 6. Progress/History Routes
-- `GET /api/athletes/{id}/history` - Workout completion history
-- `GET /api/athletes/{id}/progress` - Max strength over time
-
----
-
-## File Structure for Next Session
-
-### Backend API Routes (to create)
-
-```
-backend/app/
-├── routes/
-│   ├── __init__.py
-│   ├── auth.py          # Signup, login, me
-│   ├── coaches.py       # Coach dashboard, roster, invites
-│   ├── programs.py      # Program builder
-│   ├── athletes.py      # Calendar, workouts, logging
-│   └── admin.py         # (future) Admin panel
-├── schemas/
-│   ├── __init__.py
-│   ├── user.py          # Pydantic models for users
-│   ├── program.py       # Pydantic models for programs
-│   ├── workout.py       # Pydantic models for workouts
-│   └── auth.py          # Login/signup request/response
-└── main.py              # Register all routers
-```
-
-### Frontend Structure (to create)
-
-```
-frontend/
-├── src/
-│   ├── screens/
-│   │   ├── auth/
-│   │   │   ├── LoginScreen.tsx
-│   │   │   ├── SignupScreen.tsx
-│   │   │   └── OnboardingScreen.tsx
-│   │   ├── athlete/
-│   │   │   ├── HomeScreen.tsx
-│   │   │   ├── CalendarScreen.tsx
-│   │   │   ├── WorkoutScreen.tsx
-│   │   │   └── ProfileScreen.tsx
-│   │   └── coach/
-│   │       ├── DashboardScreen.tsx
-│   │       ├── RosterScreen.tsx
-│   │       ├── ProgramBuilderScreen.tsx
-│   │       └── AthleteDetailScreen.tsx
-│   ├── components/
-│   │   ├── ExerciseCard.tsx
-│   │   ├── SetLogger.tsx
-│   │   └── Calendar.tsx
-│   ├── api/
-│   │   ├── client.ts       # Axios instance
-│   │   └── endpoints.ts    # API functions
-│   ├── hooks/
-│   │   └── useAuth.ts      # Auth context
-│   └── navigation/
-│       └── AppNavigator.tsx
-└── App.tsx
-```
-
----
-
-## Key Decisions Needed
-
-1. **Push notification service** - Expo's built-in or Firebase Cloud Messaging?
-2. **Video storage** - S3, Cloudinary, or Firebase Storage for exercise demos and lift videos?
-3. **Production database hosting** - Supabase, Railway, or Render?
-4. **Production deployment** - Vercel for web, EAS Build for mobile?
+**Phase 4: Polish**
+1. Loading states and error handling
+2. Notifications setup (daily workout reminders)
+3. Offline support (cache workouts)
+4. Video upload/playback
 
 ---
 
@@ -197,9 +110,11 @@ frontend/
 cd backend
 uv run uvicorn app.main:app --reload --port 8001
 
-# Terminal 2: Frontend (once created)
+# Terminal 2: Frontend
 cd frontend
-npx expo start
+npm install        # First time only
+npm start          # Starts Expo dev server
+# Then press 'i' for iOS or 'a' for Android
 
 # Terminal 3: Database (if needed)
 psql freeweight
@@ -209,7 +124,57 @@ psql freeweight
 
 1. Pull latest changes: `git pull`
 2. Check for new migrations: `cd backend && uv run alembic upgrade head`
-3. Start backend: `cd backend && uv run uvicorn app.main:app --reload --port 8001`
+3. Install any new dependencies:
+   - Backend: `cd backend && uv sync`
+   - Frontend: `cd frontend && npm install`
+4. Start backend: `cd backend && uv run uvicorn app.main:app --reload --port 8001`
+
+---
+
+## API Endpoints Reference
+
+All endpoints documented at http://localhost:8001/docs
+
+### Auth (`/api/auth`)
+- `POST /api/auth/signup` - Create new user
+- `POST /api/auth/login` - Login and get JWT
+- `GET /api/auth/me` - Get current user
+
+### Coach (`/api/coaches`)
+- `GET /api/coaches/dashboard` - Stats and flags
+- `GET /api/coaches/roster` - All athletes
+- `POST /api/coaches/invite` - Generate invite link
+- `POST /api/coaches/groups` - Create group
+- `POST /api/coaches/groups/{id}/subgroups` - Create subgroup
+
+### Programs (`/api/programs`)
+- `POST /api/programs` - Create program
+- `GET /api/programs/{id}` - View program
+- `POST /api/programs/{id}/workouts` - Add workout
+- `POST /api/programs/workouts/{id}/exercises` - Add exercise
+- `POST /api/programs/{id}/assign` - Assign to athlete/group
+
+### Athletes (`/api/athletes`)
+- `POST /api/athletes/onboarding` - Complete onboarding
+- `PUT /api/athletes/maxes` - Update maxes
+- `GET /api/athletes/calendar` - View scheduled workouts
+- `GET /api/athletes/workouts/today` - Today's workout
+- `POST /api/athletes/workouts/{id}/start` - Start workout
+- `POST /api/athletes/workouts/{id}/sets` - Log set
+- `POST /api/athletes/workouts/{id}/complete` - Complete workout
+- `POST /api/athletes/workouts/{id}/flag` - Flag issue
+- `GET /api/athletes/history` - Completion history
+- `GET /api/athletes/progress` - Max progression
+
+---
+
+## Key Decisions Still Needed
+
+1. **Video storage** - S3, Cloudinary, or Firebase Storage for exercise demos and lift videos?
+2. **Push notifications** - Expo's built-in or Firebase Cloud Messaging?
+3. **Production database hosting** - Supabase, Railway, or Render?
+4. **Production deployment** - Vercel for web, EAS Build for mobile?
+5. **Analytics** - Mixpanel, Amplitude, or PostHog for user tracking?
 
 ---
 
@@ -217,5 +182,7 @@ psql freeweight
 
 - **Product Spec:** [mvp_spec.md](mvp_spec.md)
 - **Database Schema:** [backend/app/models.py](backend/app/models.py)
+- **API Routes:** [backend/app/routes/](backend/app/routes/)
 - **API Docs:** http://localhost:8001/docs (when backend is running)
 - **Design System:** [STYLE_GUIDE.md](STYLE_GUIDE.md)
+- **Frontend Code:** [frontend/src/](frontend/src/)
