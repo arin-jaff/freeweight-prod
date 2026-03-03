@@ -5,15 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="FreeWeight - One place to program, track, and share strength training.">
   <title>FreeWeight - Stress Less. Lift More.</title>
+  <link rel="icon" type="image/png" href="static/assets/logo.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<header class="hero">
+<header class="hero hero-split">
+  <div class="container hero-split-container">
+    <div class="hero-demo-col">
+      <div class="view-tabs">
+        <button class="view-tab active" data-view="athlete">Athlete View</button>
+        <button class="view-tab" data-view="coach">Coach View</button>
+      </div>
+      <div class="hero-view-content">
+        <div class="view-panel active" id="athlete-view">
+          <iframe src="demo/index.html#/athlete" class="demo-iframe hero-demo-iframe" title="Interactive Athlete View Demo"></iframe>
+        </div>
+        <div class="view-panel" id="coach-view">
+          <iframe src="demo/index.html#/coach" class="demo-iframe hero-demo-iframe" title="Interactive Coach View Demo"></iframe>
+        </div>
+      </div>
+    </div>
+    <div class="hero-content-col">
+      <h1>FreeWeight</h1>
+      <p class="hero-tagline">Stress Less. Lift More.</p>
+      <p class="hero-statement">
+        Program your training.<br>
+        Track your progress.<br>
+        Train with your team.<br>
+        <span class="hero-statement-sub">All in one place. Free forever.</span>
+      </p>
+      <div class="hero-why">
+        <p class="hero-why-label">Why FreeWeight?</p>
+        <div class="card feature hero-why-card">
+          <div class="competitor-logos">
+            <img src="static/assets/sheets.png" alt="Google Sheets" class="competitor-logo">
+          </div>
+          <h3>vs. Google Sheets / Notes app</h3>
+          <p>Sheets work until you're managing percentages across a 12-week cycle — or sharing updates with 20 athletes. FreeWeight does what sheets do, minus the friction, plus the community.</p>
+        </div>
+        <div class="card feature hero-why-card">
+          <div class="competitor-logos">
+            <img src="static/assets/strong.png" alt="Strong" class="competitor-logo">
+            <img src="static/assets/hevy.png" alt="Hevy" class="competitor-logo">
+            <img src="static/assets/strava.png" alt="Strava" class="competitor-logo">
+          </div>
+          <h3>vs. Strong / Hevy / Strava</h3>
+          <p>Those are logging apps. They record what you did. FreeWeight programs what you should do next, auto-calculates your working weights, and connects you to your coach or training partners.</p>
+        </div>
+        <div class="card feature hero-why-card">
+          <div class="competitor-logos">
+            <img src="static/assets/volt.jpeg" alt="Volt" class="competitor-logo">
+            <img src="static/assets/teambuildr.png" alt="TeamBuildr" class="competitor-logo">
+            <img src="static/assets/truecoach.png" alt="TrueCoach" class="competitor-logo">
+          </div>
+          <h3>vs. Volt / TeamBuildr / TrueCoach</h3>
+          <p>Enterprise coaching platforms start at $200+/year. FreeWeight is free and built for everyone — from a college club team to a group of friends running a training cycle.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
-    <h1>FreeWeight</h1>
-    <p class="hero-tagline">Stress Less. Lift More.</p>
-    <p class="hero-statement">Program your training, track your progress, and train with your team — all in one place. Free forever.</p>
+    <div class="hero-cta-box">
+      <p class="hero-cta-label">Be first to get access</p>
+      <form id="emailForm" action="https://docs.google.com/forms/d/e/1FAIpQLSeuPbqGvZ0hNbfc7_rIWBXwiQOEkxHCSvPBqFD3xu0cTxnVvw/formResponse" method="POST" target="hiddenFrame">
+        <div class="form-container hero-form-container">
+          <input type="email" name="entry.830470166" placeholder="Enter your email" required>
+          <button type="submit" class="btn-primary">Join The Waitlist →</button>
+        </div>
+        <div id="confirmMsg" class="confirm-msg">You're on the list. ✅</div>
+      </form>
+    </div>
+    <iframe name="hiddenFrame" style="display:none;"></iframe>
   </div>
 </header>
 
@@ -22,20 +86,6 @@
     <h2>Your training is scattered. It doesn't have to be.</h2>
     <p>A spreadsheet for your program. A calculator for percentages. A group chat for check-ins. The Notes app for your maxes. A photo of the whiteboard for today's session.</p>
     <p>Sound familiar? FreeWeight replaces the patchwork with a single platform — purpose-built for strength training.</p>
-  </div>
-</section>
-
-<section class="section cta-section">
-  <div class="container">
-    <p class="cta-headline">Start Training Now</p>
-    <form id="emailForm" action="https://docs.google.com/forms/d/e/1FAIpQLSeuPbqGvZ0hNbfc7_rIWBXwiQOEkxHCSvPBqFD3xu0cTxnVvw/formResponse" method="POST" target="hiddenFrame">
-      <div class="form-container">
-        <input type="email" name="entry.830470166" placeholder="Enter your email" required>
-        <button type="submit" class="btn-primary">Join The Waitlist →</button>
-      </div>
-      <div id="confirmMsg" class="confirm-msg">You're on the list. ✅</div>
-    </form>
-    <iframe name="hiddenFrame" style="display:none;"></iframe>
   </div>
 </section>
 
@@ -102,51 +152,6 @@
     <div class="card feature">
       <h3>Share it.</h3>
       <p>A team feed for PRs, milestones, and daily sessions. Not clout — just the work.</p>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<section class="section view-selector">
-  <div class="container">
-    <h2>See it in action.</h2>
-
-    <div class="view-tabs">
-      <button class="view-tab active" data-view="athlete">Athlete View</button>
-      <button class="view-tab" data-view="coach">Coach View</button>
-    </div>
-
-    <div class="view-content">
-      <div class="view-panel active" id="athlete-view">
-        <iframe src="demo/index.html#/athlete" class="demo-iframe" title="Interactive Athlete View Demo"></iframe>
-      </div>
-      <div class="view-panel" id="coach-view">
-        <iframe src="demo/index.html#/coach" class="demo-iframe" title="Interactive Coach View Demo"></iframe>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<section class="section why-freeweight">
-  <div class="container">
-    <h2>Why FreeWeight?</h2>
-
-    <div class="card feature">
-      <h3>vs. Google Sheets / Notes app</h3>
-      <p>Sheets work until you're managing percentages across a 12-week cycle — or sharing updates with 20 athletes. FreeWeight does what sheets do, minus the friction, plus the community.</p>
-    </div>
-
-    <div class="card feature">
-      <h3>vs. Strong / Hevy / Strava</h3>
-      <p>Those are logging apps. They record what you did. FreeWeight programs what you should do next, auto-calculates your working weights, and connects you to your coach or training partners.</p>
-    </div>
-
-    <div class="card feature">
-      <h3>vs. Volt / TeamBuildr / TrueCoach</h3>
-      <p>Enterprise coaching platforms start at $200+/year. FreeWeight is free and built for everyone — from a college club team to a group of friends running a training cycle.</p>
     </div>
   </div>
 </section>
