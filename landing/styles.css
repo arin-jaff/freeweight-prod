@@ -527,6 +527,13 @@ small {
   border: 1px solid rgba(180, 240, 0, 0.2);
 }
 
+/* Compact sections */
+.how-it-works,
+.social-proof,
+.finale {
+  padding: 2rem 0;
+}
+
 /* Footer */
 .footer-tagline {
   margin-top: 2rem;
@@ -721,11 +728,76 @@ small {
   margin-bottom: 1rem;
 }
 
+.hero-content-col .hero-statement {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-family: 'Montserrat', 'Roboto', sans-serif;
+  line-height: 1.4;
+  color: var(--color-text);
+  margin-bottom: 0;
+}
+
+.hero-statement-sub {
+  font-size: 1rem;
+  font-weight: 400;
+  font-family: 'Roboto', sans-serif;
+  color: rgba(230, 237, 243, 0.6);
+  display: block;
+  margin-top: 0.75rem;
+}
+
+.hero-cta-box {
+  margin-top: 2rem;
+  padding: 1.5rem 2rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 12px;
+  background: rgba(180, 240, 0, 0.05);
+  box-shadow: 0 0 24px rgba(180, 240, 0, 0.08);
+  width: 100%;
+}
+
+.hero-cta-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 1rem;
+}
+
 .hero-form-container {
   max-width: 100%;
   margin: 0;
-  margin-top: 1.5rem;
 }
+
+.hero-why {
+  margin-top: 2rem;
+}
+
+.hero-why-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(230, 237, 243, 0.4);
+  margin-bottom: 1rem;
+}
+
+.hero-why-card {
+  margin-bottom: 0.75rem !important;
+}
+
+.hero-why-card h3 {
+  font-size: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.hero-why-card p {
+  font-size: 0.875rem;
+  color: rgba(230, 237, 243, 0.6);
+  margin-bottom: 0;
+}
+
 
 @media (min-width: 900px) {
   .hero-split {
