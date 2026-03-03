@@ -74,7 +74,7 @@ This is an early-stage startup. Every line of code is technical debt until prove
 - Vanilla HTML/CSS/JS marketing site with waitlist signup
 - No build required — edit and refresh
 - Contains UI mockups (demo) embedded via iframes
-- Served at root path `/` in production
+- Served via Cloudflare Pages from the `landing/` directory
 
 **Backend** (`/backend/`)
 - FastAPI + PostgreSQL + SQLAlchemy
