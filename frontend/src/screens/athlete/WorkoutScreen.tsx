@@ -77,6 +77,12 @@ export default function WorkoutScreen({ route, navigation }: Props) {
   const allExercisesComplete =
     exerciseLogs.length > 0 &&
     exerciseLogs.every((log) => log.sets.every((s) => s.logged));
+  const totalSets = exerciseLogs.reduce((sum, log) => sum + log.sets.length, 0);
+  const completedSets = exerciseLogs.reduce(
+    (sum, log) => sum + log.sets.filter((s) => s.logged).length,
+    0
+  );
+  const completionProgress = totalSets > 0 ? completedSets / totalSets : 0;
 
   const startWorkout = async () => {
     try {
@@ -210,20 +216,23 @@ export default function WorkoutScreen({ route, navigation }: Props) {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#14181C' }}
+      style={{ flex: 1, backgroundColor: '#0A0A0A' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backArrow}>←</Text>
+          <Text style={styles.backArrow}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {workoutName}
+        <Text style={styles.headerTitle}>
+          Exercise {Math.min(currentExerciseIdx + 1, workout.exercises.length)} of {workout.exercises.length}
         </Text>
         <TouchableOpacity onPress={() => setShowFlagForm(true)} style={styles.flagButton}>
           <Text style={styles.flagButtonText}>⚑ Flag</Text>
         </TouchableOpacity>
+      </View>
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${Math.round(completionProgress * 100)}%` }]} />
       </View>
 
       {/* Completed state */}
@@ -238,36 +247,6 @@ export default function WorkoutScreen({ route, navigation }: Props) {
         </View>
       ) : (
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
-          {/* Exercise list overview */}
-          <View style={styles.exerciseList}>
-            {workout.exercises.map((ex, i) => {
-              const log = exerciseLogs[i];
-              const done = log?.sets.every((s) => s.logged);
-              const isCurrent = i === currentExerciseIdx;
-              return (
-                <View
-                  key={ex.id}
-                  style={[
-                    styles.exerciseChip,
-                    done && styles.exerciseChipDone,
-                    isCurrent && styles.exerciseChipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.exerciseChipText,
-                      done && styles.exerciseChipTextDone,
-                      isCurrent && styles.exerciseChipTextActive,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {done ? '✓ ' : ''}{ex.name}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-
           {allExercisesComplete ? (
             /* All sets logged — finish */
             <View style={styles.finishContainer}>
@@ -290,64 +269,81 @@ export default function WorkoutScreen({ route, navigation }: Props) {
             <View style={styles.activeExercise}>
               {/* Exercise info */}
               <View style={styles.exerciseInfo}>
-                <Text style={styles.exerciseLabel}>
-                  Exercise {currentExerciseIdx + 1} of {workout.exercises.length}
-                </Text>
                 <Text style={styles.exerciseName}>{currentExercise?.name}</Text>
                 <Text style={styles.exerciseScheme}>
-                  {currentExercise?.sets} sets × {currentExercise?.reps} reps
+                  {currentExercise?.sets} sets • {currentExercise?.reps} reps
+                  {currentExercise?.target_weight
+                    ? ` • ${Math.round(currentExercise.target_weight)} lbs`
+                    : ''}
                 </Text>
 
-                {currentExercise?.target_weight && (
-                  <View style={styles.targetBadge}>
-                    <Text style={styles.targetText}>
-                      Target: {Math.round(currentExercise.target_weight)} lbs
-                      {currentExercise.percentage_of_max
-                        ? ` (${Math.round(currentExercise.percentage_of_max * 100)}% of ${currentExercise.target_exercise})`
-                        : ''}
-                    </Text>
-                  </View>
-                )}
-
-                {currentExercise?.coach_notes && (
-                  <View style={styles.notesCard}>
-                    <Text style={styles.notesLabel}>COACH NOTES</Text>
-                    <Text style={styles.notesText}>{currentExercise.coach_notes}</Text>
+                {currentExercise?.video_url && (
+                  <View style={styles.videoCard}>
+                    <View style={styles.playButton}>
+                      <Text style={styles.playIcon}>▶</Text>
+                    </View>
+                    <Text style={styles.videoLabel}>Form Video</Text>
                   </View>
                 )}
               </View>
 
               {/* Set logger */}
               <View style={styles.setLogger}>
-                <Text style={styles.setLabel}>
-                  Set {currentSetIdx + 1} of {currentExercise?.sets}
-                </Text>
+                <Text style={styles.setSectionTitle}>Sets to Complete</Text>
 
-                <View style={styles.inputRow}>
-                  <View style={styles.inputBlock}>
-                    <Text style={styles.inputLabel}>WEIGHT (lbs)</Text>
-                    <TextInput
-                      style={styles.bigInput}
-                      value={currentSet?.weight ?? ''}
-                      onChangeText={(v) => updateCurrentSet('weight', v)}
-                      keyboardType="numeric"
-                      placeholder="0"
-                      placeholderTextColor="#5A6572"
-                    />
+                {currentLog?.sets.map((set, idx) => {
+                  const isCurrentSet = idx === currentSetIdx;
+                  return (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.setCard,
+                        set.logged && styles.setCardDone,
+                        isCurrentSet && styles.setCardCurrent,
+                      ]}
+                    >
+                      <View style={styles.setNumberCircle}>
+                        <Text style={styles.setNumberText}>{idx + 1}</Text>
+                      </View>
+                      <View style={styles.setContent}>
+                        {isCurrentSet && !set.logged ? (
+                          <View style={styles.inlineInputs}>
+                            <TextInput
+                              style={styles.inlineInput}
+                              value={set.weight}
+                              onChangeText={(v) => updateCurrentSet('weight', v)}
+                              keyboardType="numeric"
+                              placeholder="Weight"
+                              placeholderTextColor="#666"
+                            />
+                            <Text style={styles.inlineDot}>•</Text>
+                            <TextInput
+                              style={styles.inlineInput}
+                              value={set.reps}
+                              onChangeText={(v) => updateCurrentSet('reps', v)}
+                              keyboardType="numeric"
+                              placeholder="Reps"
+                              placeholderTextColor="#666"
+                            />
+                          </View>
+                        ) : (
+                          <Text style={styles.setMetaText}>
+                            {set.reps} reps • {set.weight || '0'} lbs
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+
+                {currentExercise?.coach_notes && (
+                  <View style={styles.notesSection}>
+                    <Text style={styles.notesSectionTitle}>Coach Notes</Text>
+                    <View style={styles.notesCard}>
+                      <Text style={styles.notesText}>{currentExercise.coach_notes}</Text>
+                    </View>
                   </View>
-                  <View style={styles.inputDivider} />
-                  <View style={styles.inputBlock}>
-                    <Text style={styles.inputLabel}>REPS</Text>
-                    <TextInput
-                      style={styles.bigInput}
-                      value={currentSet?.reps ?? ''}
-                      onChangeText={(v) => updateCurrentSet('reps', v)}
-                      keyboardType="numeric"
-                      placeholder="0"
-                      placeholderTextColor="#5A6572"
-                    />
-                  </View>
-                </View>
+                )}
 
                 <TouchableOpacity
                   style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
@@ -357,7 +353,7 @@ export default function WorkoutScreen({ route, navigation }: Props) {
                   {submitting ? (
                     <ActivityIndicator color="#14181C" />
                   ) : (
-                    <Text style={styles.primaryButtonText}>LOG SET</Text>
+                    <Text style={styles.primaryButtonText}>✓ Completed</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -404,49 +400,65 @@ export default function WorkoutScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   centered: {
     flex: 1,
-    backgroundColor: '#14181C',
+    backgroundColor: '#0A0A0A',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
   },
   errorText: {
-    color: '#E6EDF3',
+    color: '#FFFFFF',
     fontSize: 16,
   },
   backLink: {
-    color: '#B4F000',
+    color: '#C8FF00',
     fontSize: 14,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 56,
+    paddingTop: 54,
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
+    paddingBottom: 12,
+    backgroundColor: '#0A0A0A',
   },
   backButton: {
-    padding: 4,
-    marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1C1C1E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2A2A2E',
   },
   backArrow: {
-    fontSize: 20,
-    color: '#E6EDF3',
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   headerTitle: {
     flex: 1,
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#E6EDF3',
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   flagButton: {
-    padding: 4,
+    width: 48,
+    alignItems: 'flex-end',
   },
   flagButtonText: {
     color: '#FF4D4F',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+  },
+  progressTrack: {
+    height: 3,
+    backgroundColor: '#1C1C1E',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#C8FF00',
   },
   exerciseList: {
     flexDirection: 'row',
@@ -486,11 +498,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   exerciseInfo: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 12,
   },
   exerciseLabel: {
     fontSize: 11,
@@ -500,15 +510,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   exerciseName: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: 'bold',
-    color: '#E6EDF3',
-    marginBottom: 6,
+    color: '#FFFFFF',
+    marginBottom: 8,
   },
   exerciseScheme: {
-    fontSize: 15,
-    color: '#5A6572',
-    marginBottom: 14,
+    fontSize: 14,
+    color: '#888888',
+    marginBottom: 18,
   },
   targetBadge: {
     backgroundColor: 'rgba(180, 240, 0, 0.08)',
@@ -526,8 +536,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   notesCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 8,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 16,
     padding: 14,
   },
   notesLabel: {
@@ -539,11 +549,116 @@ const styles = StyleSheet.create({
   },
   notesText: {
     fontSize: 13,
-    color: '#E6EDF3',
+    color: '#FFFFFF',
     lineHeight: 20,
   },
   setLogger: {
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 24,
+  },
+  setSectionTitle: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  setCard: {
+    backgroundColor: '#1C1C1E',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#252528',
+  },
+  setCardCurrent: {
+    borderColor: '#C8FF00',
+  },
+  setCardDone: {
+    opacity: 0.55,
+  },
+  setNumberCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#C8FF00',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  setNumberText: {
+    color: '#0A0A0A',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  setContent: {
+    flex: 1,
+  },
+  inlineInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inlineInput: {
+    flex: 1,
+    backgroundColor: '#101012',
+    borderColor: '#2A2A2E',
+    borderWidth: 1,
+    borderRadius: 12,
+    color: '#FFFFFF',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  inlineDot: {
+    marginHorizontal: 8,
+    color: '#888888',
+    fontSize: 14,
+  },
+  setMetaText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  videoCard: {
+    height: 150,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+  playButton: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#C8FF00',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  playIcon: {
+    color: '#0A0A0A',
+    fontSize: 20,
+    fontWeight: '800',
+    marginLeft: 2,
+  },
+  videoLabel: {
+    color: '#888888',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  notesSection: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  notesSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
   },
   setLabel: {
     fontSize: 11,
@@ -586,16 +701,17 @@ const styles = StyleSheet.create({
     width: '80%',
   },
   primaryButton: {
-    backgroundColor: '#B4F000',
+    backgroundColor: '#C8FF00',
     padding: 18,
-    borderRadius: 10,
+    borderRadius: 16,
     alignItems: 'center',
+    width: '100%',
   },
   primaryButtonDisabled: {
     opacity: 0.7,
   },
   primaryButtonText: {
-    color: '#14181C',
+    color: '#0A0A0A',
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 1,
@@ -608,11 +724,11 @@ const styles = StyleSheet.create({
   finishTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#E6EDF3',
+    color: '#FFFFFF',
   },
   finishSub: {
     fontSize: 14,
-    color: '#5A6572',
+    color: '#888888',
     marginBottom: 8,
   },
   completedContainer: {
@@ -624,16 +740,16 @@ const styles = StyleSheet.create({
   },
   completedIcon: {
     fontSize: 56,
-    color: '#B4F000',
+    color: '#C8FF00',
   },
   completedTitle: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#E6EDF3',
+    color: '#FFFFFF',
   },
   completedSub: {
     fontSize: 15,
-    color: '#5A6572',
+    color: '#888888',
     marginBottom: 16,
   },
   flagOverlay: {
@@ -645,7 +761,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   flagCard: {
-    backgroundColor: '#1C2128',
+    backgroundColor: '#1C1C1E',
     borderRadius: 16,
     padding: 24,
     width: '100%',
@@ -656,15 +772,15 @@ const styles = StyleSheet.create({
   flagTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#E6EDF3',
+    color: '#FFFFFF',
   },
   flagSub: {
     fontSize: 13,
-    color: '#5A6572',
+    color: '#888888',
   },
   flagInput: {
-    backgroundColor: '#14181C',
-    color: '#E6EDF3',
+    backgroundColor: '#101012',
+    color: '#FFFFFF',
     borderRadius: 8,
     padding: 14,
     fontSize: 15,
@@ -678,7 +794,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#5A6572',
+    color: '#888888',
     fontSize: 14,
   },
 });
