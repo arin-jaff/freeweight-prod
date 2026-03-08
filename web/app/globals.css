@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-victory: "Victory Striker Sans", sans-serif;
+  }
+
+  body {
+    @apply bg-background text-text font-body;
+    font-family: "Roboto", sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-victory), sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-background font-semibold px-6 py-3 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply border-2 border-primary text-primary font-semibold px-6 py-3 rounded-lg hover:bg-primary hover:text-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .input-field {
+    @apply w-full bg-[#1F2937] border border-secondary text-text px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-secondary;
+  }
+
+  .card {
+    @apply bg-[#1F2937] rounded-lg p-6 border border-secondary/20;
+  }
+}
