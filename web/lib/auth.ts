@@ -5,6 +5,7 @@ export interface User {
   email: string;
   name: string;
   user_type: "athlete" | "coach";
+  profile_photo_url?: string;
   sport?: string;
   team?: string;
   training_goals?: string;

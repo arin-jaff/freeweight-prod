@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from datetime import datetime, date, timedelta
 from typing import Optional
+import base64
 from ..database import get_db
 from ..auth import get_current_athlete
 from .. import models
@@ -740,3 +741,49 @@ def get_progress(
         )
         for exercise in sorted(all_exercises)
     ]
+
+
+@router.put("/profile")
+def update_profile(
+    data: dict,
+    current_athlete: models.User = Depends(get_current_athlete),
+    db: Session = Depends(get_db)
+):
+    if "sport" in data:
+        current_athlete.sport = data["sport"]
+    if "team" in data:
+        current_athlete.team = data["team"]
+    if "training_goals" in data:
+        current_athlete.training_goals = data["training_goals"]
+    if "injuries" in data:
+        current_athlete.injuries = data["injuries"]
+    if "experience_level" in data:
+        current_athlete.experience_level = data["experience_level"]
+    if "name" in data:
+        current_athlete.name = data["name"]
+
+    db.commit()
+    return {"message": "Profile updated successfully"}
+
+
+@router.post("/profile/photo")
+def upload_profile_photo(
+    file: UploadFile = File(...),
+    current_athlete: models.User = Depends(get_current_athlete),
+    db: Session = Depends(get_db)
+):
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    # Read and store as base64 data URL (simple approach for MVP)
+    contents = file.file.read()
+    if len(contents) > 5 * 1024 * 1024:  # 5MB limit
+        raise HTTPException(status_code=400, detail="Image too large (max 5MB)")
+
+    b64 = base64.b64encode(contents).decode("utf-8")
+    data_url = f"data:{file.content_type};base64,{b64}"
+
+    current_athlete.profile_photo_url = data_url
+    db.commit()
+
+    return {"profile_photo_url": data_url}

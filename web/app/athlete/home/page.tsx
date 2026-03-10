@@ -14,10 +14,11 @@ import {
   endOfWeek,
   isSameMonth,
   isSameDay,
+  differenceInDays,
 } from "date-fns";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
-import { athleteApi, Workout, Exercise } from "@/lib/api-endpoints";
+import { athleteApi, Workout, Exercise, ProgressData } from "@/lib/api-endpoints";
 import { getAuthData } from "@/lib/auth";
 
 interface CalendarExercise {
@@ -35,12 +36,38 @@ interface CalendarWorkout {
   exercises: CalendarExercise[];
 }
 
+const STRENGTH_LEVELS = [
+  { key: "beginner", label: "Beginner", min: 0 },
+  { key: "intermediate", label: "Intermediate", min: 1 },
+  { key: "advanced", label: "Advanced", min: 2 },
+  { key: "elite", label: "Elite", min: 3 },
+  { key: "pro", label: "Pro", min: 4 },
+];
+
+const LIFT_LABELS: Record<string, string> = {
+  squat: "Squat",
+  bench: "Bench",
+  deadlift: "Deadlift",
+  clean: "Clean",
+};
+
+function getStrengthLevelIndex(level?: string): number {
+  if (!level) return 0;
+  const map: Record<string, number> = {
+    beginner: 0,
+    intermediate: 1,
+    advanced: 2,
+    elite: 3,
+    pro: 4,
+  };
+  return map[level.toLowerCase()] ?? 0;
+}
+
 export default function AthleteHomePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = getAuthData();
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   const [editingWorkout, setEditingWorkout] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -67,6 +94,18 @@ export default function AthleteHomePage() {
     enabled: mounted,
   });
 
+  const { data: progressData } = useQuery({
+    queryKey: ["progress"],
+    queryFn: () => athleteApi.getProgress(),
+    enabled: mounted,
+  });
+
+  const { data: history } = useQuery({
+    queryKey: ["history"],
+    queryFn: () => athleteApi.getHistory(),
+    enabled: mounted,
+  });
+
   // Build date -> workouts map
   const workoutsByDate = useMemo(() => {
     const map: Record<string, CalendarWorkout[]> = {};
@@ -79,7 +118,6 @@ export default function AthleteHomePage() {
     return map;
   }, [calendarData]);
 
-  // Build calendar grid
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
     let day = startOfWeek(startOfMonth(currentMonth));
@@ -91,6 +129,91 @@ export default function AthleteHomePage() {
     return days;
   }, [currentMonth]);
 
+  // Upcoming workouts (next 7 days)
+  const upcomingWorkouts = useMemo(() => {
+    const arr = Array.isArray(calendarData) ? calendarData : [];
+    const now = new Date();
+    const weekFromNow = addDays(now, 7);
+    return (arr as unknown as CalendarWorkout[])
+      .filter((w) => {
+        const d = new Date(w.scheduled_date);
+        return d >= now && d <= weekFromNow && !w.is_completed;
+      })
+      .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
+      .slice(0, 5);
+  }, [calendarData]);
+
+  // Workout stats
+  const stats = useMemo(() => {
+    const completed = history?.filter((w) => w.is_completed) || [];
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const thisWeek = completed.filter((w) => w.completed_at && new Date(w.completed_at) >= weekAgo);
+
+    // Current streak
+    let streak = 0;
+    const allArr = Array.isArray(calendarData) ? calendarData : [];
+    const sortedCompleted = (allArr as unknown as CalendarWorkout[])
+      .filter((w) => w.is_completed)
+      .sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime());
+
+    if (sortedCompleted.length > 0) {
+      let checkDate = new Date();
+      for (const w of sortedCompleted) {
+        const wDate = format(new Date(w.scheduled_date), "yyyy-MM-dd");
+        const checkStr = format(checkDate, "yyyy-MM-dd");
+        if (wDate === checkStr || wDate === format(addDays(checkDate, -1), "yyyy-MM-dd")) {
+          streak++;
+          checkDate = new Date(w.scheduled_date);
+        } else {
+          break;
+        }
+      }
+    }
+
+    return {
+      totalCompleted: completed.length,
+      thisWeek: thisWeek.length,
+      streak,
+    };
+  }, [history, calendarData]);
+
+  // Best lifts from progress data
+  const bestLifts = useMemo(() => {
+    if (!progressData) return [];
+    return progressData
+      .filter((p) => p.current_max && p.current_max > 0)
+      .map((p) => ({
+        name: LIFT_LABELS[p.exercise_name] || p.exercise_name,
+        key: p.exercise_name,
+        weight: p.current_max!,
+        goal: p.goal,
+      }));
+  }, [progressData]);
+
+  // Goals with progress
+  const activeGoals = useMemo(() => {
+    if (!progressData) return [];
+    return progressData
+      .filter((p) => p.goal)
+      .map((p) => {
+        const start = p.goal!.starting_weight;
+        const target = p.goal!.target_weight;
+        const current = p.current_max || start;
+        const total = target - start;
+        const gained = current - start;
+        const pct = total > 0 ? Math.min(100, Math.max(0, Math.round((gained / total) * 100))) : 0;
+        const daysLeft = differenceInDays(new Date(p.goal!.target_date), new Date());
+        return {
+          exercise: LIFT_LABELS[p.exercise_name] || p.exercise_name,
+          current,
+          target,
+          pct,
+          daysLeft,
+        };
+      });
+  }, [progressData]);
+
   const handleStartWorkout = (workoutId: number) => {
     router.push(`/athlete/workout/${workoutId}`);
   };
@@ -99,8 +222,6 @@ export default function AthleteHomePage() {
     const key = format(day, "yyyy-MM-dd");
     const dayWorkouts = workoutsByDate[key];
     if (dayWorkouts && dayWorkouts.length > 0) {
-      setSelectedDay(day);
-      // Load full workout details for the modal
       athleteApi.getWorkout(dayWorkouts[0].id).then((w) => {
         setSelectedWorkout(w);
         setEditingWorkout(false);
@@ -119,71 +240,244 @@ export default function AthleteHomePage() {
   }
 
   const today = new Date();
-
-  // Total sets for a workout
+  const strengthIdx = getStrengthLevelIndex(user?.experience_level);
   const totalSets = (exercises: CalendarExercise[]) =>
     exercises.reduce((sum, ex) => sum + ex.sets, 0);
+
+  const greeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
 
   return (
     <AuthGuard requiredUserType="athlete">
       <div className="min-h-screen bg-background">
-        <NavBar userName={user?.name || ""} userType="athlete" />
+        <NavBar userName={user?.name || ""} userType="athlete" profilePhoto={user?.profile_photo_url} />
 
-        <main className="max-w-5xl mx-auto px-4 py-8">
-          {/* Today's Workout Card */}
+        <main className="max-w-6xl mx-auto px-4 py-8">
+
+          {/* ── Welcome Header ── */}
           <section className="mb-8">
-            <h2 className="text-2xl font-heading font-bold text-text mb-4">Today&apos;s Workout</h2>
-            {loadingToday ? (
-              <div className="card"><p className="text-secondary">Loading...</p></div>
-            ) : todayWorkout ? (
-              <div className="card hover:border-primary/40 transition-colors">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-heading font-bold text-text mb-2">
-                      {todayWorkout.name}
-                    </h3>
-                    <p className="text-secondary text-sm">
-                      {todayWorkout.exercises?.length || 0} exercises
-                    </p>
-                  </div>
-                  {todayWorkout.is_completed ? (
-                    <span className="px-4 py-2 bg-primary/20 text-primary rounded-lg text-sm font-medium">
-                      Completed
-                    </span>
-                  ) : (
-                    <button onClick={() => handleStartWorkout(todayWorkout.id)} className="btn-primary">
-                      Start Workout
-                    </button>
-                  )}
+            <div className="flex items-center gap-4 mb-6">
+              {user?.profile_photo_url ? (
+                <img
+                  src={user.profile_photo_url}
+                  alt=""
+                  className="w-16 h-16 rounded-full object-cover border-2 border-primary/40"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold border-2 border-primary/40">
+                  {(user?.name || "A").charAt(0).toUpperCase()}
                 </div>
-                <div className="space-y-2">
-                  {todayWorkout.exercises?.slice(0, 3).map((exercise, idx) => (
-                    <div key={exercise.id} className="flex justify-between items-center py-2 border-t border-secondary/20">
-                      <span className="text-text">{idx + 1}. {exercise.name}</span>
-                      <span className="text-secondary text-sm">
-                        {exercise.sets} x {exercise.reps}
-                        {exercise.percentage_of_max && ` @ ${Math.round(exercise.percentage_of_max * 100)}%`}
-                      </span>
-                    </div>
-                  ))}
-                  {(todayWorkout.exercises?.length || 0) > 3 && (
-                    <p className="text-secondary text-sm pt-2">
-                      + {(todayWorkout.exercises?.length || 0) - 3} more exercises
-                    </p>
-                  )}
-                </div>
+              )}
+              <div>
+                <h1 className="text-3xl font-heading font-bold text-text">
+                  {greeting()}, {user?.name?.split(" ")[0] || "Athlete"}
+                </h1>
+                <p className="text-secondary mt-1">
+                  {user?.sport && user?.team
+                    ? `${user.sport} \u2014 ${user.team}`
+                    : user?.sport || user?.team || "Ready to train"}
+                </p>
               </div>
-            ) : (
-              <div className="card">
-                <p className="text-secondary">No workout scheduled for today. Rest day!</p>
-              </div>
-            )}
+            </div>
           </section>
 
-          {/* Monthly Calendar */}
+          {/* ── Top Metrics Row ── */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-[#1F2937] rounded-xl p-4 border border-secondary/15">
+              <p className="text-secondary text-xs uppercase tracking-wider mb-1">This Week</p>
+              <p className="text-3xl font-heading font-bold text-primary">{stats.thisWeek}</p>
+              <p className="text-secondary text-xs mt-1">workouts</p>
+            </div>
+            <div className="bg-[#1F2937] rounded-xl p-4 border border-secondary/15">
+              <p className="text-secondary text-xs uppercase tracking-wider mb-1">Streak</p>
+              <p className="text-3xl font-heading font-bold text-text">{stats.streak}</p>
+              <p className="text-secondary text-xs mt-1">days</p>
+            </div>
+            <div className="bg-[#1F2937] rounded-xl p-4 border border-secondary/15">
+              <p className="text-secondary text-xs uppercase tracking-wider mb-1">Total</p>
+              <p className="text-3xl font-heading font-bold text-text">{stats.totalCompleted}</p>
+              <p className="text-secondary text-xs mt-1">completed</p>
+            </div>
+            <div className="bg-[#1F2937] rounded-xl p-4 border border-secondary/15">
+              <p className="text-secondary text-xs uppercase tracking-wider mb-1">Upcoming</p>
+              <p className="text-3xl font-heading font-bold text-text">{upcomingWorkouts.length}</p>
+              <p className="text-secondary text-xs mt-1">next 7 days</p>
+            </div>
+          </section>
+
+          {/* ── Two Column: Left (Today + Upcoming) / Right (Strength Level + Best Lifts + Goals) ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+            {/* Left Column — Today + Upcoming */}
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* Today's Workout */}
+              <div className="bg-[#1F2937] rounded-xl border border-secondary/15 p-5">
+                <h2 className="text-lg font-heading font-bold text-text mb-3">Today</h2>
+                {loadingToday ? (
+                  <p className="text-secondary text-sm">Loading...</p>
+                ) : todayWorkout ? (
+                  <div>
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="text-xl font-heading font-bold text-text">{todayWorkout.name}</h3>
+                        <p className="text-secondary text-sm mt-0.5">
+                          {todayWorkout.exercises?.length || 0} exercises &middot; {todayWorkout.exercises?.reduce((s, e) => s + e.sets, 0) || 0} total sets
+                        </p>
+                      </div>
+                      {todayWorkout.is_completed ? (
+                        <span className="px-3 py-1.5 bg-primary/20 text-primary rounded-lg text-sm font-medium">
+                          Completed
+                        </span>
+                      ) : (
+                        <button onClick={() => handleStartWorkout(todayWorkout.id)} className="btn-primary text-sm px-5 py-2">
+                          Start Workout
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      {todayWorkout.exercises?.slice(0, 4).map((exercise, idx) => (
+                        <div key={exercise.id} className="flex justify-between items-center py-1.5 border-t border-secondary/10">
+                          <span className="text-text text-sm">{idx + 1}. {exercise.name}</span>
+                          <span className="text-secondary text-xs">
+                            {exercise.sets} &times; {exercise.reps}
+                            {exercise.percentage_of_max && ` @ ${Math.round(exercise.percentage_of_max * 100)}%`}
+                          </span>
+                        </div>
+                      ))}
+                      {(todayWorkout.exercises?.length || 0) > 4 && (
+                        <p className="text-secondary text-xs pt-1">+ {(todayWorkout.exercises?.length || 0) - 4} more</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-secondary">No workout scheduled today. Rest day!</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Upcoming Workouts */}
+              {upcomingWorkouts.length > 0 && (
+                <div className="bg-[#1F2937] rounded-xl border border-secondary/15 p-5">
+                  <h2 className="text-lg font-heading font-bold text-text mb-3">Upcoming</h2>
+                  <div className="space-y-2">
+                    {upcomingWorkouts.map((w) => {
+                      const d = new Date(w.scheduled_date);
+                      const isToday = isSameDay(d, today);
+                      const isTomorrow = isSameDay(d, addDays(today, 1));
+                      const dayLabel = isToday ? "Today" : isTomorrow ? "Tomorrow" : format(d, "EEE, MMM d");
+                      return (
+                        <button
+                          key={w.id}
+                          onClick={() => {
+                            athleteApi.getWorkout(w.id).then((full) => {
+                              setSelectedWorkout(full);
+                              setEditingWorkout(false);
+                            });
+                          }}
+                          className="w-full flex items-center justify-between bg-background rounded-lg px-4 py-3 hover:bg-[#243044] transition-colors text-left"
+                        >
+                          <div>
+                            <p className="text-text font-medium text-sm">{w.name}</p>
+                            <p className="text-secondary text-xs mt-0.5">
+                              {w.exercises.length} exercises &middot; {totalSets(w.exercises)} sets
+                            </p>
+                          </div>
+                          <span className="text-secondary text-xs whitespace-nowrap ml-3">{dayLabel}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column — Strength Level + Best Lifts + Goals */}
+            <div className="space-y-6">
+
+              {/* Strength Level */}
+              <div className="bg-[#1F2937] rounded-xl border border-secondary/15 p-5">
+                <h2 className="text-lg font-heading font-bold text-text mb-3">Strength Level</h2>
+                <div className="flex items-center gap-1 mb-2">
+                  {STRENGTH_LEVELS.map((lvl, i) => (
+                    <div
+                      key={lvl.key}
+                      className={`h-2 flex-1 rounded-full ${
+                        i <= strengthIdx ? "bg-primary" : "bg-secondary/20"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-between text-[10px] text-secondary">
+                  {STRENGTH_LEVELS.map((lvl, i) => (
+                    <span key={lvl.key} className={i === strengthIdx ? "text-primary font-semibold" : ""}>
+                      {lvl.label}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-center mt-3">
+                  <span className="text-primary font-heading font-bold text-lg capitalize">
+                    {user?.experience_level || "Beginner"}
+                  </span>
+                </p>
+              </div>
+
+              {/* Best Lifts */}
+              {bestLifts.length > 0 && (
+                <div className="bg-[#1F2937] rounded-xl border border-secondary/15 p-5">
+                  <h2 className="text-lg font-heading font-bold text-text mb-3">Best Lifts</h2>
+                  <div className="space-y-3">
+                    {bestLifts.map((lift) => (
+                      <div key={lift.key} className="flex justify-between items-center">
+                        <span className="text-text text-sm capitalize">{lift.name}</span>
+                        <span className="text-primary font-heading font-bold text-lg">{lift.weight}<span className="text-secondary text-xs ml-1">lbs</span></span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Goals */}
+              {activeGoals.length > 0 && (
+                <div className="bg-[#1F2937] rounded-xl border border-secondary/15 p-5">
+                  <h2 className="text-lg font-heading font-bold text-text mb-3">Goals</h2>
+                  <div className="space-y-4">
+                    {activeGoals.map((g) => (
+                      <div key={g.exercise}>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-text text-sm">{g.exercise}</span>
+                          <span className="text-xs text-secondary">
+                            {g.daysLeft > 0 ? `${g.daysLeft}d left` : "Past due"}
+                          </span>
+                        </div>
+                        <div className="h-2 bg-secondary/20 rounded-full overflow-hidden mb-1">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${g.pct}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-secondary">
+                          <span>{g.current} lbs</span>
+                          <span className="text-primary font-medium">{g.pct}%</span>
+                          <span>{g.target} lbs</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Monthly Calendar ── */}
           <section className="bg-[#1a2332] rounded-xl border border-secondary/20 p-5">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-heading font-bold text-text">Calendar</h2>
+              <h2 className="text-lg font-heading font-bold text-text">Calendar</h2>
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
@@ -191,7 +485,7 @@ export default function AthleteHomePage() {
                 >
                   &larr;
                 </button>
-                <span className="text-text font-medium min-w-[160px] text-center text-lg">
+                <span className="text-text font-medium min-w-[140px] text-center">
                   {format(currentMonth, "MMMM yyyy")}
                 </span>
                 <button
@@ -209,14 +503,12 @@ export default function AthleteHomePage() {
               </div>
             </div>
 
-            {/* Day headers */}
             <div className="grid grid-cols-7 gap-1 mb-1">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
                 <div key={d} className="text-xs text-secondary text-center py-2 font-medium">{d}</div>
               ))}
             </div>
 
-            {/* Calendar grid */}
             <div className="grid grid-cols-7 gap-1">
               {calendarDays.map((day) => {
                 const key = format(day, "yyyy-MM-dd");
@@ -241,7 +533,6 @@ export default function AthleteHomePage() {
                       {format(day, "d")}
                     </span>
 
-                    {/* Workout event panels */}
                     {hasWorkout && (
                       <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                         {dayWorkouts.map((w) => (
@@ -255,7 +546,7 @@ export default function AthleteHomePage() {
                           >
                             <div className="font-medium truncate">{w.name}</div>
                             <div className="text-[9px] opacity-70 mt-0.5">
-                              {totalSets(w.exercises)} sets &middot; {w.exercises.length} exercises
+                              {totalSets(w.exercises)} sets &middot; {w.exercises.length} ex
                             </div>
                           </div>
                         ))}
@@ -273,7 +564,7 @@ export default function AthleteHomePage() {
           <WorkoutModal
             workout={selectedWorkout}
             editing={editingWorkout}
-            onClose={() => { setSelectedWorkout(null); setSelectedDay(null); setEditingWorkout(false); }}
+            onClose={() => { setSelectedWorkout(null); setEditingWorkout(false); }}
             onStartWorkout={handleStartWorkout}
             onEdit={() => setEditingWorkout(true)}
             onSave={async (data) => {
@@ -390,7 +681,6 @@ function WorkoutModal({ workout, editing, onClose, onStartWorkout, onEdit, onSav
           </div>
         )}
 
-        {/* View Mode */}
         {!editing && (
           <>
             <div className="space-y-3">
@@ -431,7 +721,6 @@ function WorkoutModal({ workout, editing, onClose, onStartWorkout, onEdit, onSav
           </>
         )}
 
-        {/* Edit Mode */}
         {editing && (
           <>
             <div className="space-y-3 mb-4">

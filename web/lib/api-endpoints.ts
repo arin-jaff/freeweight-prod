@@ -233,8 +233,19 @@ export const athleteApi = {
     return response.data;
   },
 
-  updateProfile: async (data: { sport?: string; team?: string; training_goals?: string }) => {
+  updateProfile: async (data: { name?: string; sport?: string; team?: string; training_goals?: string; injuries?: string; experience_level?: string }) => {
     const response = await apiClient.put("/api/athletes/profile", data);
+    return response.data;
+  },
+
+  uploadPhoto: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await apiClient.post<{ profile_photo_url: string }>(
+      "/api/athletes/profile/photo",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
     return response.data;
   },
 
