@@ -6,7 +6,10 @@ class OnboardingRequest(BaseModel):
     sport: Optional[str] = None
     team: Optional[str] = None
     training_goals: Optional[str] = None
+    injuries: Optional[str] = None
+    experience_level: Optional[str] = None  # beginner, intermediate, advanced
     maxes: Optional[dict[str, float]] = None
+    has_coach: bool = False  # True if athlete signed up with invite code
 
 class MaxUpdate(BaseModel):
     exercise_name: str

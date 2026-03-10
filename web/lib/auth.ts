@@ -8,6 +8,9 @@ export interface User {
   sport?: string;
   team?: string;
   training_goals?: string;
+  injuries?: string;
+  experience_level?: string;
+  onboarding_completed?: boolean;
   coaching_credentials?: string;
   bio?: string;
 }
@@ -32,21 +35,17 @@ export const authApi = {
     formData.append("username", email);
     formData.append("password", password);
 
-    const tokenRes = await apiClient.post<{ access_token: string }>("/api/auth/login", formData, {
+    const response = await apiClient.post<LoginResponse>("/api/auth/login", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     });
-    localStorage.setItem("auth_token", tokenRes.data.access_token);
-    const user = await authApi.getMe();
-    return { access_token: tokenRes.data.access_token, token_type: "bearer", user };
+    return response.data;
   },
 
   signup: async (data: SignupData): Promise<LoginResponse> => {
-    const tokenRes = await apiClient.post<{ access_token: string }>("/api/auth/signup", data);
-    localStorage.setItem("auth_token", tokenRes.data.access_token);
-    const user = await authApi.getMe();
-    return { access_token: tokenRes.data.access_token, token_type: "bearer", user };
+    const response = await apiClient.post<LoginResponse>("/api/auth/signup", data);
+    return response.data;
   },
 
   getMe: async (): Promise<User> => {

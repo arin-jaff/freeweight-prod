@@ -111,10 +111,13 @@ export interface CoachDashboard {
 
 export const athleteApi = {
   onboarding: async (data: {
-    sport: string;
+    sport?: string;
     team?: string;
     training_goals?: string;
-    maxes: Array<{ exercise_name: string; max_weight: number; unit: string }>;
+    injuries?: string;
+    experience_level?: string;
+    maxes?: Record<string, number>;
+    has_coach: boolean;
   }) => {
     const response = await apiClient.post("/api/athletes/onboarding", data);
     return response.data;
@@ -126,6 +129,24 @@ export const athleteApi = {
       max_weight,
       unit,
     });
+    return response.data;
+  },
+
+  editWorkout: async (workoutId: number, data: {
+    name?: string;
+    exercises?: Array<{
+      id?: number;
+      name: string;
+      sets: number;
+      reps: number;
+      percentage_of_max?: number;
+      target_exercise?: string;
+      coach_notes?: string;
+      order: number;
+    }>;
+    modification_notes?: string;
+  }) => {
+    const response = await apiClient.put<Workout>(`/api/athletes/workouts/${workoutId}`, data);
     return response.data;
   },
 

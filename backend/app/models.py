@@ -48,6 +48,9 @@ class User(Base):
     sport = Column(String, nullable=True)
     team = Column(String, nullable=True)
     training_goals = Column(Text, nullable=True)
+    injuries = Column(Text, nullable=True)
+    experience_level = Column(String, nullable=True)  # beginner, intermediate, advanced
+    onboarding_completed = Column(Boolean, default=False)
 
     # Coach-specific fields
     coaching_credentials = Column(Text, nullable=True)
@@ -142,6 +145,8 @@ class Workout(Base):
     name = Column(String, nullable=False)
     scheduled_date = Column(DateTime(timezone=True), nullable=False)
     day_offset = Column(Integer, nullable=True)  # Days from program start for template workouts
+    athlete_modified = Column(Boolean, default=False)  # True if athlete edited a coach-assigned workout
+    modification_notes = Column(Text, nullable=True)  # What the athlete changed
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     program = relationship("Program", back_populates="workouts")

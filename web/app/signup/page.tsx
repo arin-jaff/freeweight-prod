@@ -35,7 +35,11 @@ export default function SignupPage() {
       if (response.user.user_type === "coach") {
         router.push("/coach/dashboard");
       } else {
-        router.push("/athlete/home");
+        // Set flag so onboarding knows if athlete has a coach
+        if (inviteCode) {
+          localStorage.setItem("has_coach", "true");
+        }
+        router.push("/athlete/onboarding");
       }
     } catch (err: any) {
       setError(err.response?.data?.detail || "Signup failed. Please try again.");

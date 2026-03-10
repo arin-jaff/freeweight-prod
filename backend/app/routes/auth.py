@@ -8,6 +8,25 @@ from ..auth import get_password_hash, verify_password, create_access_token, get_
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+
+def _user_dict(user: User) -> dict:
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "user_type": user.user_type.value,
+        "sport": user.sport,
+        "team": user.team,
+        "training_goals": user.training_goals,
+        "injuries": user.injuries,
+        "experience_level": user.experience_level,
+        "onboarding_completed": user.onboarding_completed or False,
+        "coaching_credentials": user.coaching_credentials,
+        "bio": user.bio,
+        "profile_photo_url": user.profile_photo_url
+    }
+
+
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def signup(request: SignupRequest, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == request.email).first()
@@ -40,23 +59,11 @@ def signup(request: SignupRequest, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": {
-            "id": new_user.id,
-            "email": new_user.email,
-            "name": new_user.name,
-            "user_type": new_user.user_type.value,
-            "sport": new_user.sport,
-            "team": new_user.team,
-            "training_goals": new_user.training_goals,
-            "coaching_credentials": new_user.coaching_credentials,
-            "bio": new_user.bio,
-            "profile_photo_url": new_user.profile_photo_url
-        }
+        "user": _user_dict(new_user)
     }
 
 @router.post("/login", response_model=TokenResponse)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # OAuth2PasswordRequestForm uses 'username' field, but we use email
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
         raise HTTPException(
@@ -74,22 +81,10 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
     access_token = create_access_token(data={"sub": user.id})
 
-    # Return user info along with token
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "user_type": user.user_type.value,
-            "sport": user.sport,
-            "team": user.team,
-            "training_goals": user.training_goals,
-            "coaching_credentials": user.coaching_credentials,
-            "bio": user.bio,
-            "profile_photo_url": user.profile_photo_url
-        }
+        "user": _user_dict(user)
     }
 
 @router.get("/me", response_model=UserResponse)

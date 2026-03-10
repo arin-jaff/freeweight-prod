@@ -21,9 +21,11 @@ export default function LoginPage() {
       const response = await authApi.login(email, password);
       saveAuthData(response.access_token, response.user);
 
-      // Redirect based on user type
+      // Redirect based on user type and onboarding status
       if (response.user.user_type === "coach") {
         router.push("/coach/dashboard");
+      } else if (!response.user.onboarding_completed) {
+        router.push("/athlete/onboarding");
       } else {
         router.push("/athlete/home");
       }
