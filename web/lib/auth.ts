@@ -32,17 +32,21 @@ export const authApi = {
     formData.append("username", email);
     formData.append("password", password);
 
-    const response = await apiClient.post<LoginResponse>("/api/auth/login", formData, {
+    const tokenRes = await apiClient.post<{ access_token: string }>("/api/auth/login", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     });
-    return response.data;
+    localStorage.setItem("auth_token", tokenRes.data.access_token);
+    const user = await authApi.getMe();
+    return { access_token: tokenRes.data.access_token, token_type: "bearer", user };
   },
 
   signup: async (data: SignupData): Promise<LoginResponse> => {
-    const response = await apiClient.post<LoginResponse>("/api/auth/signup", data);
-    return response.data;
+    const tokenRes = await apiClient.post<{ access_token: string }>("/api/auth/signup", data);
+    localStorage.setItem("auth_token", tokenRes.data.access_token);
+    const user = await authApi.getMe();
+    return { access_token: tokenRes.data.access_token, token_type: "bearer", user };
   },
 
   getMe: async (): Promise<User> => {
