@@ -5,8 +5,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
-import { athleteApi, authApi } from "@/lib/api-endpoints";
-import { getAuthData } from "@/lib/auth";
+import { athleteApi } from "@/lib/api-endpoints";
+import { getAuthData, authApi } from "@/lib/auth";
 
 export default function AthleteProfilePage() {
   const { user } = getAuthData();

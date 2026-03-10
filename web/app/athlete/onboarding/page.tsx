@@ -51,6 +51,14 @@ export default function AthleteOnboardingPage() {
     clean: "",
   });
 
+  // Step 5: Strength Goals (optional)
+  const [strengthGoals, setStrengthGoals] = useState<Record<string, { target: string; date: string }>>({
+    squat: { target: "", date: "" },
+    bench: { target: "", date: "" },
+    deadlift: { target: "", date: "" },
+    clean: { target: "", date: "" },
+  });
+
   useEffect(() => {
     const { user } = getAuthData();
     if (!user || user.user_type !== "athlete") {
@@ -61,13 +69,11 @@ export default function AthleteOnboardingPage() {
       router.push("/athlete/home");
       return;
     }
-    // Check if the user signed up with an invite code (has a coach)
-    // We detect this from localStorage flag set during signup
     const coachFlag = localStorage.getItem("has_coach");
     setHasCoach(coachFlag === "true");
   }, [router]);
 
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   const handleNext = () => {
     setError("");
@@ -92,6 +98,15 @@ export default function AthleteOnboardingPage() {
         }
       }
 
+      // Build goals object
+      const goalsObj: Record<string, { target_weight: number; target_date: string }> = {};
+      for (const [key, val] of Object.entries(strengthGoals)) {
+        const targetNum = parseFloat(val.target);
+        if (!isNaN(targetNum) && targetNum > 0 && val.date) {
+          goalsObj[key] = { target_weight: targetNum, target_date: val.date };
+        }
+      }
+
       await athleteApi.onboarding({
         sport: sport || undefined,
         team: team || undefined,
@@ -100,9 +115,9 @@ export default function AthleteOnboardingPage() {
         experience_level: experienceLevel || undefined,
         maxes: Object.keys(maxesObj).length > 0 ? maxesObj : undefined,
         has_coach: hasCoach,
+        goals: Object.keys(goalsObj).length > 0 ? goalsObj : undefined,
       });
 
-      // Refresh user data so onboarding_completed is true
       const updatedUser = await authApi.getMe();
       const token = localStorage.getItem("auth_token");
       if (token) {
@@ -117,6 +132,17 @@ export default function AthleteOnboardingPage() {
       setLoading(false);
     }
   };
+
+  // Check if any goals have been set
+  const hasAnyGoals = Object.values(strengthGoals).some(
+    (g) => g.target && g.date
+  );
+
+  // Get lifts that have maxes entered (for goal suggestions)
+  const liftsWithMaxes = CORE_LIFTS.filter((lift) => {
+    const val = parseFloat(maxes[lift.key]);
+    return !isNaN(val) && val > 0;
+  });
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
@@ -310,6 +336,83 @@ export default function AthleteOnboardingPage() {
                     <span className="text-sm text-secondary w-8">lbs</span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={handleBack} className="flex-1 btn-secondary">
+                Back
+              </button>
+              <button onClick={handleNext} className="flex-1 btn-primary">
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Strength Goals (optional) */}
+        {step === 5 && (
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">
+                Set a strength goal (optional)
+              </label>
+              <p className="text-xs text-secondary mb-4">
+                Pick a target weight and date for any lift. We&apos;ll show your projected path and track your progress.
+              </p>
+
+              <div className="space-y-4">
+                {CORE_LIFTS.map((lift) => {
+                  const currentMax = parseFloat(maxes[lift.key]);
+                  const hasMax = !isNaN(currentMax) && currentMax > 0;
+                  const goal = strengthGoals[lift.key];
+
+                  return (
+                    <div key={lift.key} className="bg-[#1F2937] rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-text font-medium">{lift.label}</span>
+                        {hasMax && (
+                          <span className="text-xs text-secondary">Current: {currentMax} lbs</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-secondary block mb-1">Target weight</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              className="input-field py-2 text-sm flex-1"
+                              placeholder={hasMax ? `e.g. ${Math.round(currentMax * 1.2)}` : "—"}
+                              value={goal.target}
+                              onChange={(e) =>
+                                setStrengthGoals((prev) => ({
+                                  ...prev,
+                                  [lift.key]: { ...prev[lift.key], target: e.target.value },
+                                }))
+                              }
+                            />
+                            <span className="text-xs text-secondary">lbs</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-secondary block mb-1">By when</label>
+                          <input
+                            type="date"
+                            className="input-field py-2 text-sm"
+                            value={goal.date}
+                            onChange={(e) =>
+                              setStrengthGoals((prev) => ({
+                                ...prev,
+                                [lift.key]: { ...prev[lift.key], date: e.target.value },
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

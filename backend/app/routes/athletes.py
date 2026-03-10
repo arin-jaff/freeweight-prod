@@ -6,7 +6,7 @@ from typing import Optional
 from ..database import get_db
 from ..auth import get_current_athlete
 from .. import models
-from ..schemas.athlete import OnboardingRequest, MaxUpdate, CalendarResponse, CalendarWorkout, ProgressResponse, ProgressDataPoint
+from ..schemas.athlete import OnboardingRequest, MaxUpdate, CalendarWorkout, CalendarExerciseSummary, ProgressResponse, ProgressDataPoint, StrengthGoalResponse
 from ..schemas.workout import WorkoutResponse, ExerciseResponse, SetLogCreate, WorkoutComplete, FlagRequest, WorkoutLogResponse, WorkoutEdit
 
 router = APIRouter(prefix="/api/athletes", tags=["athletes"])
@@ -86,6 +86,24 @@ def complete_onboarding(
                     exercise_name=exercise_name,
                     max_weight=max_weight,
                     unit="lbs"
+                ))
+
+    # Save strength goals if provided
+    if data.goals:
+        for exercise_name, goal_data in data.goals.items():
+            target_weight = goal_data.get("target_weight")
+            target_date_str = goal_data.get("target_date")
+            if target_weight and target_date_str:
+                # Use current max as starting weight, or 0 if not set
+                starting_weight = 0.0
+                if data.maxes and exercise_name in data.maxes:
+                    starting_weight = data.maxes[exercise_name]
+                db.add(models.StrengthGoal(
+                    athlete_id=current_athlete.id,
+                    exercise_name=exercise_name,
+                    starting_weight=starting_weight,
+                    target_weight=float(target_weight),
+                    target_date=datetime.fromisoformat(target_date_str)
                 ))
 
     # For coachless athletes, generate a starter program
@@ -361,15 +379,13 @@ def update_max(
     return {"message": "Max updated successfully"}
 
 
-@router.get("/calendar", response_model=CalendarResponse)
+@router.get("/calendar", response_model=list[CalendarWorkout])
 def get_calendar(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     current_athlete: models.User = Depends(get_current_athlete),
     db: Session = Depends(get_db)
 ):
-    # Only query workouts assigned directly to this athlete.
-    # Coach-assigned workouts are materialized to athlete_id rows in assign_program.
     query = db.query(models.Workout).filter(
         models.Workout.athlete_id == current_athlete.id
     )
@@ -390,15 +406,21 @@ def get_calendar(
             )
         ).first()
 
+        exercises = [
+            CalendarExerciseSummary(name=ex.name, sets=ex.sets, reps=ex.reps)
+            for ex in sorted(workout.exercises, key=lambda e: e.order)
+        ]
+
         calendar_workouts.append(CalendarWorkout(
             id=workout.id,
             name=workout.name,
             scheduled_date=workout.scheduled_date,
             is_completed=workout_log.is_completed if workout_log else False,
-            is_flagged=workout_log.is_flagged if workout_log else False
+            is_flagged=workout_log.is_flagged if workout_log else False,
+            exercises=exercises
         ))
 
-    return CalendarResponse(workouts=calendar_workouts)
+    return calendar_workouts
 
 
 @router.get("/workouts/today", response_model=WorkoutResponse)
@@ -678,7 +700,8 @@ def get_progress(
 
     maxes = query.order_by(models.AthleteMax.exercise_name, models.AthleteMax.recorded_at).all()
 
-    progress_by_exercise = {}
+    progress_by_exercise: dict[str, list[ProgressDataPoint]] = {}
+    current_maxes: dict[str, float] = {}
     for max_record in maxes:
         if max_record.exercise_name not in progress_by_exercise:
             progress_by_exercise[max_record.exercise_name] = []
@@ -688,8 +711,32 @@ def get_progress(
                 max_weight=max_record.max_weight
             )
         )
+        current_maxes[max_record.exercise_name] = max_record.max_weight
+
+    # Fetch strength goals
+    goals_query = db.query(models.StrengthGoal).filter(
+        models.StrengthGoal.athlete_id == current_athlete.id
+    )
+    if exercise_name:
+        goals_query = goals_query.filter(models.StrengthGoal.exercise_name == exercise_name)
+    goals = {g.exercise_name: g for g in goals_query.all()}
+
+    # Combine exercises from both maxes and goals
+    all_exercises = set(progress_by_exercise.keys()) | set(goals.keys())
 
     return [
-        ProgressResponse(exercise_name=exercise, data=data)
-        for exercise, data in progress_by_exercise.items()
+        ProgressResponse(
+            exercise_name=exercise,
+            current_max=current_maxes.get(exercise),
+            data=progress_by_exercise.get(exercise, []),
+            goal=StrengthGoalResponse(
+                id=goals[exercise].id,
+                exercise_name=goals[exercise].exercise_name,
+                starting_weight=goals[exercise].starting_weight,
+                target_weight=goals[exercise].target_weight,
+                target_date=goals[exercise].target_date,
+                created_at=goals[exercise].created_at
+            ) if exercise in goals else None
+        )
+        for exercise in sorted(all_exercises)
     ]

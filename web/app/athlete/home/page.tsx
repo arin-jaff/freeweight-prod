@@ -20,11 +20,27 @@ import NavBar from "@/components/NavBar";
 import { athleteApi, Workout, Exercise } from "@/lib/api-endpoints";
 import { getAuthData } from "@/lib/auth";
 
+interface CalendarExercise {
+  name: string;
+  sets: number;
+  reps: number;
+}
+
+interface CalendarWorkout {
+  id: number;
+  name: string;
+  scheduled_date: string;
+  is_completed: boolean;
+  is_flagged: boolean;
+  exercises: CalendarExercise[];
+}
+
 export default function AthleteHomePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = getAuthData();
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   const [editingWorkout, setEditingWorkout] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -33,7 +49,6 @@ export default function AthleteHomePage() {
     setMounted(true);
   }, []);
 
-  // Fetch workouts for the visible calendar range
   const calendarStart = startOfWeek(startOfMonth(currentMonth));
   const calendarEnd = endOfWeek(endOfMonth(currentMonth));
 
@@ -54,12 +69,12 @@ export default function AthleteHomePage() {
 
   // Build date -> workouts map
   const workoutsByDate = useMemo(() => {
-    const map: Record<string, Workout[]> = {};
+    const map: Record<string, CalendarWorkout[]> = {};
     const arr = Array.isArray(calendarData) ? calendarData : [];
     for (const w of arr) {
       const key = format(new Date(w.scheduled_date), "yyyy-MM-dd");
       if (!map[key]) map[key] = [];
-      map[key].push(w);
+      map[key].push(w as unknown as CalendarWorkout);
     }
     return map;
   }, [calendarData]);
@@ -84,8 +99,12 @@ export default function AthleteHomePage() {
     const key = format(day, "yyyy-MM-dd");
     const dayWorkouts = workoutsByDate[key];
     if (dayWorkouts && dayWorkouts.length > 0) {
-      setSelectedWorkout(dayWorkouts[0]);
-      setEditingWorkout(false);
+      setSelectedDay(day);
+      // Load full workout details for the modal
+      athleteApi.getWorkout(dayWorkouts[0].id).then((w) => {
+        setSelectedWorkout(w);
+        setEditingWorkout(false);
+      });
     }
   };
 
@@ -101,12 +120,16 @@ export default function AthleteHomePage() {
 
   const today = new Date();
 
+  // Total sets for a workout
+  const totalSets = (exercises: CalendarExercise[]) =>
+    exercises.reduce((sum, ex) => sum + ex.sets, 0);
+
   return (
     <AuthGuard requiredUserType="athlete">
       <div className="min-h-screen bg-background">
         <NavBar userName={user?.name || ""} userType="athlete" />
 
-        <main className="max-w-4xl mx-auto px-4 py-8">
+        <main className="max-w-5xl mx-auto px-4 py-8">
           {/* Today's Workout Card */}
           <section className="mb-8">
             <h2 className="text-2xl font-heading font-bold text-text mb-4">Today&apos;s Workout</h2>
@@ -158,22 +181,22 @@ export default function AthleteHomePage() {
           </section>
 
           {/* Monthly Calendar */}
-          <section>
+          <section className="bg-[#1a2332] rounded-xl border border-secondary/20 p-5">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-heading font-bold text-text">Calendar</h2>
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                  className="text-secondary hover:text-primary text-sm font-medium"
+                  className="text-secondary hover:text-primary text-lg font-medium px-2"
                 >
                   &larr;
                 </button>
-                <span className="text-text font-medium min-w-[140px] text-center">
+                <span className="text-text font-medium min-w-[160px] text-center text-lg">
                   {format(currentMonth, "MMMM yyyy")}
                 </span>
                 <button
                   onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                  className="text-secondary hover:text-primary text-sm font-medium"
+                  className="text-secondary hover:text-primary text-lg font-medium px-2"
                 >
                   &rarr;
                 </button>
@@ -201,37 +224,41 @@ export default function AthleteHomePage() {
                 const isCurrentMonth = isSameMonth(day, currentMonth);
                 const isDayToday = isSameDay(day, today);
                 const hasWorkout = dayWorkouts.length > 0;
-                const isCompleted = hasWorkout && dayWorkouts[0].is_completed;
 
                 return (
                   <button
                     key={key}
-                    onClick={() => handleDayClick(day)}
-                    className={`relative p-2 min-h-[72px] rounded-lg text-left transition-all ${
+                    onClick={() => hasWorkout ? handleDayClick(day) : undefined}
+                    className={`relative p-1.5 aspect-square rounded-md text-left transition-all flex flex-col ${
                       isCurrentMonth ? "" : "opacity-30"
                     } ${isDayToday ? "ring-2 ring-primary" : ""} ${
                       hasWorkout
-                        ? "bg-[#1F2937] hover:bg-[#2a3544] cursor-pointer border border-secondary/20"
-                        : "hover:bg-[#1F2937]/50 cursor-default"
+                        ? "bg-[#243044] hover:bg-[#2d3b52] cursor-pointer border border-secondary/25"
+                        : "bg-[#1e2b3a] hover:bg-[#243044]/60 cursor-default"
                     }`}
                   >
-                    <span className={`text-xs font-medium ${isDayToday ? "text-primary" : "text-text"}`}>
+                    <span className={`text-xs font-medium mb-1 ${isDayToday ? "text-primary" : "text-text"}`}>
                       {format(day, "d")}
                     </span>
+
+                    {/* Workout event panels */}
                     {hasWorkout && (
-                      <div className="mt-1">
-                        <div className="flex items-center gap-1">
-                          {isCompleted ? (
-                            <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-                          ) : (
-                            <div className="w-2 h-2 rounded-full border border-primary flex-shrink-0" />
-                          )}
-                          <span className="text-xs text-primary truncate">
-                            {dayWorkouts[0].name.length > 12
-                              ? dayWorkouts[0].name.slice(0, 12) + "..."
-                              : dayWorkouts[0].name}
-                          </span>
-                        </div>
+                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                        {dayWorkouts.map((w) => (
+                          <div
+                            key={w.id}
+                            className={`rounded px-1.5 py-1 text-[10px] leading-tight truncate ${
+                              w.is_completed
+                                ? "bg-primary/20 text-primary border-l-2 border-primary"
+                                : "bg-primary/10 text-primary/80 border-l-2 border-primary/50"
+                            }`}
+                          >
+                            <div className="font-medium truncate">{w.name}</div>
+                            <div className="text-[9px] opacity-70 mt-0.5">
+                              {totalSets(w.exercises)} sets &middot; {w.exercises.length} exercises
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </button>
@@ -246,7 +273,7 @@ export default function AthleteHomePage() {
           <WorkoutModal
             workout={selectedWorkout}
             editing={editingWorkout}
-            onClose={() => { setSelectedWorkout(null); setEditingWorkout(false); }}
+            onClose={() => { setSelectedWorkout(null); setSelectedDay(null); setEditingWorkout(false); }}
             onStartWorkout={handleStartWorkout}
             onEdit={() => setEditingWorkout(true)}
             onSave={async (data) => {
@@ -342,9 +369,9 @@ function WorkoutModal({ workout, editing, onClose, onStartWorkout, onEdit, onSav
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div
-        className="bg-[#1F2937] rounded-lg p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+        className="bg-[#1F2937] rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-start mb-4">

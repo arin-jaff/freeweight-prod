@@ -31,7 +31,11 @@ export interface Workout {
   scheduled_date: string;
   day_offset?: number;
   exercises: Exercise[];
+  workout_log_id?: number;
   is_completed?: boolean;
+  is_flagged?: boolean;
+  athlete_modified?: boolean;
+  modification_notes?: string;
 }
 
 export interface Program {
@@ -65,6 +69,22 @@ export interface SetLog {
   notes?: string;
   video_url?: string;
   was_modified: boolean;
+}
+
+export interface StrengthGoal {
+  id: number;
+  exercise_name: string;
+  starting_weight: number;
+  target_weight: number;
+  target_date: string;
+  created_at: string;
+}
+
+export interface ProgressData {
+  exercise_name: string;
+  current_max?: number;
+  data: Array<{ date: string; max_weight: number }>;
+  goal?: StrengthGoal;
 }
 
 export interface AthleteProfile {
@@ -118,6 +138,7 @@ export const athleteApi = {
     experience_level?: string;
     maxes?: Record<string, number>;
     has_coach: boolean;
+    goals?: Record<string, { target_weight: number; target_date: string }>;
   }) => {
     const response = await apiClient.post("/api/athletes/onboarding", data);
     return response.data;
@@ -208,7 +229,7 @@ export const athleteApi = {
   },
 
   getProgress: async () => {
-    const response = await apiClient.get<AthleteMax[]>("/api/athletes/progress");
+    const response = await apiClient.get<ProgressData[]>("/api/athletes/progress");
     return response.data;
   },
 
