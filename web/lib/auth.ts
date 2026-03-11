@@ -32,16 +32,36 @@ export interface SignupData {
 
 export const authApi = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
-    const formData = new FormData();
-    formData.append("username", email);
-    formData.append("password", password);
+    console.log("🌐 [AUTH API] Preparing login request...");
+    const params = new URLSearchParams();
+    params.append("username", email);
+    params.append("password", password);
 
-    const response = await apiClient.post<LoginResponse>("/api/auth/login", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    return response.data;
+    console.log("📤 [AUTH API] Request details:");
+    console.log("  URL: /api/auth/login");
+    console.log("  Method: POST");
+    console.log("  Content-Type: application/x-www-form-urlencoded");
+    console.log("  Body params:", params.toString());
+
+    try {
+      console.log("📡 [AUTH API] Sending request to backend...");
+      const response = await apiClient.post<LoginResponse>("/api/auth/login", params, {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+
+      console.log("✅ [AUTH API] Response received!");
+      console.log("📥 [AUTH API] Status:", response.status);
+      console.log("📥 [AUTH API] Response data:", response.data);
+
+      return response.data;
+    } catch (error: any) {
+      console.error("❌ [AUTH API] Request failed!");
+      console.error("Error:", error);
+      console.error("Response:", error.response);
+      throw error;
+    }
   },
 
   signup: async (data: SignupData): Promise<LoginResponse> => {

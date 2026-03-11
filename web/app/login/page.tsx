@@ -17,21 +17,53 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
+    console.log("🔐 [LOGIN] Starting login process...");
+    console.log("📧 [LOGIN] Email:", email);
+    console.log("🔑 [LOGIN] Password length:", password.length);
+
     try {
+      console.log("📡 [LOGIN] Calling authApi.login...");
       const response = await authApi.login(email, password);
+
+      console.log("✅ [LOGIN] Login API call successful!");
+      console.log("📦 [LOGIN] Response:", {
+        has_access_token: !!response.access_token,
+        token_type: response.token_type,
+        user_id: response.user.id,
+        user_email: response.user.email,
+        user_type: response.user.user_type,
+        onboarding_completed: response.user.onboarding_completed,
+      });
+
+      console.log("💾 [LOGIN] Saving auth data to localStorage...");
       saveAuthData(response.access_token, response.user);
+      console.log("✅ [LOGIN] Auth data saved!");
 
       // Redirect based on user type and onboarding status
+      console.log("🧭 [LOGIN] Determining redirect...");
       if (response.user.user_type === "coach") {
+        console.log("➡️  [LOGIN] Redirecting to /coach/dashboard");
         router.push("/coach/dashboard");
       } else if (!response.user.onboarding_completed) {
+        console.log("➡️  [LOGIN] Redirecting to /athlete/onboarding");
         router.push("/athlete/onboarding");
       } else {
+        console.log("➡️  [LOGIN] Redirecting to /athlete/home");
         router.push("/athlete/home");
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Login failed. Please check your credentials.");
+      console.error("❌ [LOGIN] Error occurred:");
+      console.error("Error object:", err);
+      console.error("Error response:", err.response);
+      console.error("Error status:", err.response?.status);
+      console.error("Error data:", err.response?.data);
+      console.error("Error message:", err.message);
+
+      const errorMessage = err.response?.data?.detail || "Login failed. Please check your credentials.";
+      console.error("❌ [LOGIN] Setting error message:", errorMessage);
+      setError(errorMessage);
     } finally {
+      console.log("🏁 [LOGIN] Login process finished");
       setLoading(false);
     }
   };
