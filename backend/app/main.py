@@ -14,6 +14,8 @@ app.add_middleware(
         "https://freeweight.fit",
         "https://www.freeweight.fit",
         "https://freeweight-prod.onrender.com",
+        "https://app.freeweight.fit",
+        "https://freeweight-prod.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
