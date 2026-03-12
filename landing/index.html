@@ -528,8 +528,7 @@
   // Change this to your production backend URL when deploying
   const API_BASE = 'https://freeweight-prod.onrender.com';
   // Where the Next.js web app lives (same domain in production, separate port locally)
-  // Set to '' if web app is on the same domain, or the web app URL if separate
-  const WEB_APP_BASE = '';
+  const WEB_APP_BASE = 'https://app.freeweight.fit';
 
   function showError(id, msg) {
     const el = document.getElementById(id);
@@ -553,13 +552,7 @@
   }
 
   function saveAuthAndRedirect(data) {
-    // Use the same localStorage keys as the web app (lib/auth.ts)
-    localStorage.setItem('auth_token', data.access_token);
-    if (data.user) {
-      localStorage.setItem('user', JSON.stringify(data.user));
-    }
-
-    // Redirect based on user type and onboarding status
+    // Determine redirect path based on user type and onboarding status
     const user = data.user;
     let redirectPath;
 
@@ -569,7 +562,12 @@
       redirectPath = user?.onboarding_completed ? '/athlete/home' : '/athlete/onboarding';
     }
 
-    window.location.href = WEB_APP_BASE + redirectPath;
+    // Pass token and user data via URL params so the web app can store them
+    const params = new URLSearchParams();
+    params.set('token', data.access_token);
+    params.set('user', JSON.stringify(user));
+
+    window.location.href = WEB_APP_BASE + redirectPath + '?' + params.toString();
   }
 
   // ── LOGIN ──
