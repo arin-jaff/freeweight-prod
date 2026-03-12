@@ -7,7 +7,14 @@ app = FastAPI(title="Freeweight API", version="1.0.0")
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://freeweight.fit",
+        "https://www.freeweight.fit",
+        "https://freeweight-prod.onrender.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
