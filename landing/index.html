@@ -526,9 +526,10 @@
 
   // ── API CONFIG ──
   // Change this to your production backend URL when deploying
-  const API_BASE = 'http://localhost:8001';
+  const API_BASE = 'https://freeweight-prod.onrender.com';
   // Where the Next.js web app lives (same domain in production, separate port locally)
-  const WEB_APP_BASE = 'http://localhost:3000';
+  // Set to '' if web app is on the same domain, or the web app URL if separate
+  const WEB_APP_BASE = '';
 
   function showError(id, msg) {
     const el = document.getElementById(id);

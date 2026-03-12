@@ -13,6 +13,7 @@ app.add_middleware(
         "http://localhost:3001",
         "https://freeweight.fit",
         "https://www.freeweight.fit",
+        "https://freeweight-prod.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
