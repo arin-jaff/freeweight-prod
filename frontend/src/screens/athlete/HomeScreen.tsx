@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -26,8 +26,6 @@ const TABS: Tab[] = [
   { key: 'profile', label: 'Profile' },
 ];
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 }
@@ -36,10 +34,12 @@ function formatDate(date: Date): string {
 
 function HomeTab({ navigation }: { navigation: Props['navigation'] }) {
   const today = new Date();
+  const todayKey = today.toISOString().slice(0, 10);
 
   const { data: todayWorkout, isLoading: workoutLoading, error: workoutError } = useQuery({
     queryKey: ['todayWorkout'],
-    queryFn: () => athleteApi.getTodayWorkout().then((r) => r.data),
+    queryFn: athleteApi.getTodayWorkout,
+    select: (response) => response.data,
     retry: false,
   });
 
@@ -48,52 +48,66 @@ function HomeTab({ navigation }: { navigation: Props['navigation'] }) {
   weekStart.setDate(today.getDate() - today.getDay());
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
+  const startDate = weekStart.toISOString().slice(0, 10);
+  const endDate = weekEnd.toISOString().slice(0, 10);
 
-  const { data: calendarData } = useQuery({
-    queryKey: ['calendar', weekStart.toISOString().slice(0, 10)],
-    queryFn: () =>
-      athleteApi
-        .getCalendar({
-          start_date: weekStart.toISOString().slice(0, 10),
-          end_date: weekEnd.toISOString().slice(0, 10),
-        })
-        .then((r) => r.data.workouts),
-    placeholderData: [],
+  const {
+    data: calendarData,
+    isLoading: calendarLoading,
+    error: calendarError,
+  } = useQuery({
+    queryKey: ['calendar', startDate, endDate],
+    queryFn: () => athleteApi.getCalendar({ start_date: startDate, end_date: endDate }),
+    select: (response) => response.data.workouts,
   });
 
-  const workoutDateSet = new Set(
-    (calendarData ?? []).map((w: CalendarWorkout) => w.scheduled_date.slice(0, 10))
+  const workoutsByDate = (calendarData ?? []).reduce<Record<string, CalendarWorkout[]>>(
+    (acc, workout) => {
+      const key = workout.scheduled_date.slice(0, 10);
+      acc[key] = acc[key] ?? [];
+      acc[key].push(workout);
+      return acc;
+    },
+    {}
   );
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
+  const sundayToSaturday = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
     return d;
   });
+  const weekDays = [...sundayToSaturday.slice(1), sundayToSaturday[0]];
+  const isLoading = workoutLoading || calendarLoading;
+  const hasError = Boolean(workoutError || calendarError);
 
   return (
     <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
       <Text style={styles.dateLabel}>{formatDate(today).toUpperCase()}</Text>
 
+      {hasError && (
+        <View style={styles.inlineErrorCard}>
+          <Text style={styles.inlineErrorText}>Could not load all workout data. Pull to refresh.</Text>
+        </View>
+      )}
+
       {/* Today's workout card */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>TODAY</Text>
-        {workoutLoading ? (
+        <Text style={styles.sectionLabel}>TODAY&apos;S WORKOUT</Text>
+        {isLoading ? (
           <View style={styles.card}>
             <ActivityIndicator color="#B4F000" />
           </View>
-        ) : todayWorkout && !workoutError ? (
+        ) : todayWorkout ? (
           <View style={[styles.card, styles.workoutCard]}>
             <Text style={styles.workoutName}>{todayWorkout.name}</Text>
             <Text style={styles.workoutMeta}>
               {todayWorkout.exercises.length} exercise{todayWorkout.exercises.length !== 1 ? 's' : ''}
-              {'  ·  '}
-              {todayWorkout.exercises
-                .slice(0, 3)
-                .map((e) => e.name)
-                .join(', ')}
-              {todayWorkout.exercises.length > 3 ? '...' : ''}
             </Text>
+            {todayWorkout.is_flagged && (
+              <View style={styles.flagWarning}>
+                <Text style={styles.flagWarningText}>Flagged for coach review</Text>
+              </View>
+            )}
             {todayWorkout.is_completed ? (
               <View style={styles.completedBadge}>
                 <Text style={styles.completedText}>COMPLETED</Text>
@@ -112,6 +126,11 @@ function HomeTab({ navigation }: { navigation: Props['navigation'] }) {
               </TouchableOpacity>
             )}
           </View>
+        ) : workoutError ? (
+          <View style={styles.card}>
+            <Text style={styles.restDayTitle}>Unable to load today&apos;s workout</Text>
+            <Text style={styles.restDayText}>Check your connection and try again.</Text>
+          </View>
         ) : (
           <View style={styles.card}>
             <Text style={styles.restDayTitle}>Rest Day</Text>
@@ -126,20 +145,32 @@ function HomeTab({ navigation }: { navigation: Props['navigation'] }) {
         <View style={styles.weekStrip}>
           {weekDays.map((day, i) => {
             const dateStr = day.toISOString().slice(0, 10);
-            const isToday = dateStr === today.toISOString().slice(0, 10);
-            const hasWorkout = workoutDateSet.has(dateStr);
+            const isToday = dateStr === todayKey;
+            const dayWorkouts = workoutsByDate[dateStr] ?? [];
+            const hasWorkout = dayWorkouts.length > 0;
+            const isCompleted = dayWorkouts.some((w) => w.is_completed);
             return (
               <View key={i} style={styles.dayCell}>
                 <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>
-                  {DAY_LABELS[day.getDay()]}
+                  {day.toLocaleDateString('en-US', { weekday: 'short' })}
                 </Text>
-                <View
-                  style={[
-                    styles.dayDot,
-                    hasWorkout && styles.dayDotActive,
-                    isToday && styles.dayDotToday,
-                  ]}
-                />
+                {hasWorkout ? (
+                  isCompleted ? (
+                    <View style={[styles.dayCheck, isToday && styles.dayCheckToday]}>
+                      <Text style={styles.dayCheckText}>✓</Text>
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.dayDot,
+                        styles.dayDotActive,
+                        isToday && styles.dayDotToday,
+                      ]}
+                    />
+                  )
+                ) : (
+                  <View style={styles.daySpacer} />
+                )}
                 <Text style={[styles.dayNum, isToday && styles.dayNumToday]}>
                   {day.getDate()}
                 </Text>
@@ -166,9 +197,10 @@ function ProgressTab() {
   const [newLiftWeight, setNewLiftWeight] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const { data: progress = [], isLoading } = useQuery({
+  const { data: progress = [], isLoading, error } = useQuery({
     queryKey: ['progress'],
-    queryFn: () => athleteApi.getProgress().then((r) => r.data),
+    queryFn: athleteApi.getProgress,
+    select: (response) => response.data,
   });
 
   const updateMaxMutation = useMutation({
@@ -229,6 +261,10 @@ function ProgressTab() {
 
         {isLoading ? (
           <ActivityIndicator color="#B4F000" style={{ marginTop: 32 }} />
+        ) : error ? (
+          <View style={styles.inlineErrorCard}>
+            <Text style={styles.inlineErrorText}>Could not load your maxes. Try again shortly.</Text>
+          </View>
         ) : maxes.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No maxes recorded yet.</Text>
@@ -469,6 +505,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
   },
+  inlineErrorCard: {
+    backgroundColor: 'rgba(255, 77, 79, 0.12)',
+    borderColor: 'rgba(255, 77, 79, 0.4)',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 18,
+  },
+  inlineErrorText: {
+    color: '#FFB3B4',
+    fontSize: 13,
+  },
   workoutCard: {
     borderLeftWidth: 3,
     borderLeftColor: '#B4F000',
@@ -482,7 +530,22 @@ const styles = StyleSheet.create({
   workoutMeta: {
     fontSize: 13,
     color: '#5A6572',
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  flagWarning: {
+    backgroundColor: 'rgba(255, 77, 79, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 77, 79, 0.35)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  flagWarningText: {
+    color: '#FFB3B4',
+    fontSize: 12,
+    fontWeight: '700',
   },
   startButton: {
     backgroundColor: '#B4F000',
@@ -546,11 +609,32 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: 'transparent',
   },
+  daySpacer: {
+    width: 12,
+    height: 12,
+  },
   dayDotActive: {
     backgroundColor: '#5A6572',
   },
   dayDotToday: {
     backgroundColor: '#B4F000',
+  },
+  dayCheck: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#2E7D32',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayCheckToday: {
+    backgroundColor: '#B4F000',
+  },
+  dayCheckText: {
+    color: '#14181C',
+    fontSize: 10,
+    fontWeight: '800',
+    lineHeight: 12,
   },
   dayNum: {
     fontSize: 13,

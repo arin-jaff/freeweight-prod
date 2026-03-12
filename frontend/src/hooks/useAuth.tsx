@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { authApi, LoginRequest, SignupRequest, User } from '../api/endpoints';
+import { onUnauthorized } from '../api/client';
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +19,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     loadUser();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onUnauthorized(() => {
+      setUser(null);
+    });
+
+    return unsubscribe;
   }, []);
 
   const loadUser = async () => {

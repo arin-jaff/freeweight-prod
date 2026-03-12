@@ -48,10 +48,14 @@ class User(Base):
     sport = Column(String, nullable=True)
     team = Column(String, nullable=True)
     training_goals = Column(Text, nullable=True)
+    injuries = Column(Text, nullable=True)
+    experience_level = Column(String, nullable=True)  # beginner, intermediate, advanced
+    onboarding_completed = Column(Boolean, default=False)
 
     # Coach-specific fields
     coaching_credentials = Column(Text, nullable=True)
     bio = Column(Text, nullable=True)
+    invite_code = Column(String(6), unique=True, nullable=True, index=True)  # 6-char code for coaches
 
     # Relationships
     coached_athletes = relationship(
@@ -64,6 +68,7 @@ class User(Base):
 
     maxes = relationship("AthleteMax", back_populates="athlete", cascade="all, delete-orphan")
     workout_logs = relationship("WorkoutLog", back_populates="athlete", cascade="all, delete-orphan")
+    strength_goals = relationship("StrengthGoal", back_populates="athlete", cascade="all, delete-orphan")
     groups_owned = relationship("Group", back_populates="coach", cascade="all, delete-orphan")
 
 class AthleteMax(Base):
@@ -78,6 +83,20 @@ class AthleteMax(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     athlete = relationship("User", back_populates="maxes")
+
+class StrengthGoal(Base):
+    __tablename__ = "strength_goals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    athlete_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    exercise_name = Column(String, nullable=False)  # e.g., "squat", "bench", "deadlift", "clean"
+    starting_weight = Column(Float, nullable=False)
+    target_weight = Column(Float, nullable=False)
+    target_date = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    athlete = relationship("User", back_populates="strength_goals")
+
 
 class Group(Base):
     __tablename__ = "groups"
@@ -142,6 +161,8 @@ class Workout(Base):
     name = Column(String, nullable=False)
     scheduled_date = Column(DateTime(timezone=True), nullable=False)
     day_offset = Column(Integer, nullable=True)  # Days from program start for template workouts
+    athlete_modified = Column(Boolean, default=False)  # True if athlete edited a coach-assigned workout
+    modification_notes = Column(Text, nullable=True)  # What the athlete changed
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     program = relationship("Program", back_populates="workouts")

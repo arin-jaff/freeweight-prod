@@ -27,7 +27,7 @@ const ACCENT = '#4df0c8';
 
 // ─── Dashboard Tab ─────────────────────────────────────────────────────────────
 
-function DashboardTab() {
+function DashboardTab({ onLogout }: { onLogout: () => Promise<void> }) {
   const { data, isLoading } = useQuery({
     queryKey: ['coachDashboard'],
     queryFn: () => coachApi.getDashboard().then((r) => r.data),
@@ -99,6 +99,10 @@ function DashboardTab() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+        <Text style={styles.logoutText}>LOGOUT</Text>
+      </TouchableOpacity>
 
       <View style={{ height: 24 }} />
     </ScrollView>
@@ -246,7 +250,7 @@ function ProgramsTab({ navigation }: { navigation: Props['navigation'] }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function CoachDashboardScreen({ navigation }: Props) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const firstName = user?.name.split(' ')[0] ?? 'Coach';
@@ -261,7 +265,7 @@ export default function CoachDashboardScreen({ navigation }: Props) {
 
       {/* Tab content */}
       <View style={{ flex: 1 }}>
-        {activeTab === 'dashboard' && <DashboardTab />}
+        {activeTab === 'dashboard' && <DashboardTab onLogout={logout} />}
         {activeTab === 'roster' && <RosterTab navigation={navigation} />}
         {activeTab === 'programs' && <ProgramsTab navigation={navigation} />}
       </View>
@@ -379,6 +383,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  logoutButton: {
+    backgroundColor: '#1F2937',
+    borderWidth: 1,
+    borderColor: '#2D3748',
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+  },
+  logoutText: {
+    color: '#E6EDF3',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
   emptyState: {
     flex: 1,

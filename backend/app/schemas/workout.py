@@ -25,9 +25,29 @@ class WorkoutResponse(BaseModel):
     workout_log_id: Optional[int] = None
     is_completed: bool
     is_flagged: bool
+    athlete_modified: bool = False
+    modification_notes: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class ExerciseUpdate(BaseModel):
+    id: Optional[int] = None  # None = new exercise
+    name: str
+    sets: int
+    reps: int
+    percentage_of_max: Optional[float] = None
+    target_exercise: Optional[str] = None
+    coach_notes: Optional[str] = None
+    order: int
+
+
+class WorkoutEdit(BaseModel):
+    name: Optional[str] = None
+    exercises: Optional[list[ExerciseUpdate]] = None
+    modification_notes: Optional[str] = None
+
 
 class SetLogCreate(BaseModel):
     exercise_id: int

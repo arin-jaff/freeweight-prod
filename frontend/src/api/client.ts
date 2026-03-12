@@ -1,7 +1,8 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_URL = 'http://localhost:8001';
+const API_URL = 'http://10.206.215.118:8000';
+const unauthorizedListeners = new Set<() => void>();
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -26,9 +27,17 @@ apiClient.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401) {
       await SecureStore.deleteItemAsync('auth_token');
+      unauthorizedListeners.forEach((listener) => listener());
     }
     return Promise.reject(error);
   }
 );
+
+export function onUnauthorized(listener: () => void) {
+  unauthorizedListeners.add(listener);
+  return () => {
+    unauthorizedListeners.delete(listener);
+  };
+}
 
 export default apiClient;

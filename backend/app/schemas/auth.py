@@ -20,6 +20,7 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user: Optional["UserResponse"] = None
 
 class UserResponse(BaseModel):
     id: int
@@ -30,6 +31,9 @@ class UserResponse(BaseModel):
     sport: Optional[str]
     team: Optional[str]
     training_goals: Optional[str]
+    injuries: Optional[str]
+    experience_level: Optional[str]
+    onboarding_completed: bool = False
     coaching_credentials: Optional[str]
     bio: Optional[str]
 

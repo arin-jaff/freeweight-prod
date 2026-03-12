@@ -16,11 +16,14 @@ class AthleteBasic(BaseModel):
 class FlaggedAthlete(BaseModel):
     id: int
     name: str
+    workout_name: str
     flag_reason: str
     flagged_at: datetime
 
 class DashboardResponse(BaseModel):
-    completed_workouts_today: int
+    completed_today: int
+    completed_workouts_today: int  # Deprecated, kept for backwards compatibility
+    flagged_workouts: int
     flagged_athletes: List[FlaggedAthlete]
     total_athletes: int
 
