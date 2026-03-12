@@ -104,6 +104,16 @@ export default function CoachAthleteDetailPage() {
             </div>
           </div>
 
+          {/* Injuries & Health */}
+          {athlete.injuries && (
+            <div className="card mb-6 border-amber-500/40 bg-amber-500/5">
+              <h2 className="text-lg font-heading font-bold text-amber-400 mb-2">
+                Injuries &amp; Health
+              </h2>
+              <p className="text-text text-sm whitespace-pre-wrap">{athlete.injuries}</p>
+            </div>
+          )}
+
           {/* Quick stats */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="card">
