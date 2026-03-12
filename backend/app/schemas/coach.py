@@ -49,6 +49,20 @@ class AthleteWithGroups(AthleteBasic):
 class RosterResponse(BaseModel):
     athletes: List[AthleteWithGroups]
 
+class AthleteStatus(BaseModel):
+    id: int
+    name: str
+    profile_photo_url: Optional[str] = None
+    sport: Optional[str] = None
+    status: str  # "active", "idle", "flagged", "new"
+    last_workout_name: Optional[str] = None
+    last_workout_date: Optional[datetime] = None
+    workouts_this_week: int = 0
+    has_flagged: bool = False
+
+class AthleteStatusListResponse(BaseModel):
+    athletes: List[AthleteStatus]
+
 class InviteLinkResponse(BaseModel):
     invite_link: str
     coach_id: int

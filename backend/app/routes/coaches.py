@@ -12,6 +12,8 @@ from ..schemas.coach import (
     InviteLinkResponse,
     FlaggedAthlete,
     AthleteWithGroups,
+    AthleteStatus,
+    AthleteStatusListResponse,
     GroupBasic,
     SubgroupBasic
 )
@@ -84,6 +86,71 @@ def get_invite_code(
 ):
     return {"invite_code": current_coach.invite_code}
 
+@router.get("/athlete-statuses", response_model=AthleteStatusListResponse)
+def get_athlete_statuses(
+    current_coach: User = Depends(get_current_coach),
+    db: Session = Depends(get_db)
+):
+    """Get quick-view status for all athletes on the coach's roster."""
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    three_days_ago = datetime.utcnow() - timedelta(days=3)
+
+    statuses = []
+    for athlete in current_coach.coached_athletes:
+        # Get most recent completed workout log
+        last_log = db.query(WorkoutLog).filter(
+            WorkoutLog.athlete_id == athlete.id,
+            WorkoutLog.is_completed == True
+        ).order_by(WorkoutLog.created_at.desc()).first()
+
+        # Count workouts this week
+        week_logs = db.query(WorkoutLog).filter(
+            WorkoutLog.athlete_id == athlete.id,
+            WorkoutLog.is_completed == True,
+            WorkoutLog.created_at >= week_ago
+        ).count()
+
+        # Check for flagged workouts
+        has_flagged = db.query(WorkoutLog).filter(
+            WorkoutLog.athlete_id == athlete.id,
+            WorkoutLog.is_flagged == True
+        ).first() is not None
+
+        # Determine status
+        if has_flagged:
+            status = "flagged"
+        elif last_log is None:
+            status = "new"
+        elif last_log.created_at >= three_days_ago:
+            status = "active"
+        else:
+            status = "idle"
+
+        # Get workout name for last log
+        last_workout_name = None
+        last_workout_date = None
+        if last_log:
+            workout = db.query(Workout).filter(Workout.id == last_log.workout_id).first()
+            last_workout_name = workout.name if workout else "Unknown"
+            last_workout_date = last_log.created_at
+
+        statuses.append(AthleteStatus(
+            id=athlete.id,
+            name=athlete.name,
+            profile_photo_url=athlete.profile_photo_url,
+            sport=athlete.sport,
+            status=status,
+            last_workout_name=last_workout_name,
+            last_workout_date=last_workout_date,
+            workouts_this_week=week_logs,
+            has_flagged=has_flagged,
+        ))
+
+    # Sort: flagged first, then active, then idle, then new
+    status_order = {"flagged": 0, "active": 1, "idle": 2, "new": 3}
+    statuses.sort(key=lambda s: status_order.get(s.status, 4))
+
+    return AthleteStatusListResponse(athletes=statuses)
 
 @router.post("/invite", response_model=InviteLinkResponse)
 def create_invite_link(

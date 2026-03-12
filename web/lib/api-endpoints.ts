@@ -127,6 +127,18 @@ export interface CoachDashboard {
   }>;
 }
 
+export interface AthleteStatus {
+  id: number;
+  name: string;
+  profile_photo_url?: string;
+  sport?: string;
+  status: "active" | "idle" | "flagged" | "new";
+  last_workout_name?: string;
+  last_workout_date?: string;
+  workouts_this_week: number;
+  has_flagged: boolean;
+}
+
 // ============================================================================
 // ATHLETE API
 // ============================================================================
@@ -275,6 +287,11 @@ export const coachApi = {
   getAthleteDetail: async (athleteId: number) => {
     const response = await apiClient.get<AthleteProfile>(`/api/coaches/athletes/${athleteId}`);
     return response.data;
+  },
+
+  getAthleteStatuses: async () => {
+    const response = await apiClient.get<{ athletes: AthleteStatus[] }>("/api/coaches/athlete-statuses");
+    return response.data.athletes;
   },
 
   getInviteCode: async () => {
