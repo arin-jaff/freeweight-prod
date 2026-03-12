@@ -120,7 +120,7 @@ export default function CoachDashboardPage() {
                         </p>
                       </div>
                       <Link
-                        href={`/coach/roster?athlete=${flagged.id}`}
+                        href={`/coach/athletes/${flagged.id}`}
                         className="text-primary hover:underline text-sm font-medium"
                       >
                         View Details →
