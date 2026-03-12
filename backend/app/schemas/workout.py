@@ -75,6 +75,8 @@ class WorkoutLogResponse(BaseModel):
     has_modifications: bool
     is_flagged: bool
     flag_reason: Optional[str] = None
+    coach_acknowledged: bool = False
+    coach_response: Optional[str] = None
 
     class Config:
         from_attributes = True

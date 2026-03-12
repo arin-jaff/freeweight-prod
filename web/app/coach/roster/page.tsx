@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
+import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
 import apiClient from "@/lib/api-client";
@@ -126,7 +127,7 @@ export default function CoachRosterPage() {
               {roster && roster.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {roster.map((athlete) => (
-                    <div key={athlete.id} className="card">
+                    <Link key={athlete.id} href={`/coach/athletes/${athlete.id}`} className="card block hover:border-primary/40 transition-colors">
                       <h3 className="text-xl font-heading font-bold text-text mb-2">
                         {athlete.name}
                       </h3>
@@ -157,7 +158,7 @@ export default function CoachRosterPage() {
                           ))}
                         </div>
                       )}
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : (
@@ -201,16 +202,17 @@ export default function CoachRosterPage() {
                       {groupAthletes && groupAthletes.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {groupAthletes.map((athlete) => (
-                            <div
+                            <Link
                               key={athlete.id}
-                              className="bg-background rounded-lg p-4 border border-secondary/10"
+                              href={`/coach/athletes/${athlete.id}`}
+                              className="bg-background rounded-lg p-4 border border-secondary/10 block hover:border-primary/40 transition-colors"
                             >
                               <h4 className="font-semibold text-text mb-1">{athlete.name}</h4>
                               <p className="text-xs text-secondary">{athlete.email}</p>
                               {athlete.team && (
                                 <p className="text-xs text-secondary mt-1">{athlete.team}</p>
                               )}
-                            </div>
+                            </Link>
                           ))}
                         </div>
                       ) : (

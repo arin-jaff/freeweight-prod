@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 from ..database import get_db
 from ..auth import get_current_coach
 from ..models import User, Group, Subgroup, WorkoutLog, AthleteMax, Workout
@@ -76,6 +77,13 @@ def get_roster(
         ))
 
     return RosterResponse(athletes=athletes_with_groups)
+
+@router.get("/invite-code")
+def get_invite_code(
+    current_coach: User = Depends(get_current_coach)
+):
+    return {"invite_code": current_coach.invite_code}
+
 
 @router.post("/invite", response_model=InviteLinkResponse)
 def create_invite_link(
@@ -230,11 +238,17 @@ def get_athlete_detail(
     for log in recent_logs:
         workout = db.query(Workout).filter(Workout.id == log.workout_id).first()
         log_data.append({
+            "id": log.id,
             "workout_name": workout.name if workout else "Unknown",
             "scheduled_date": (workout.scheduled_date if workout else log.created_at).isoformat(),
+            "completed_at": log.completed_at.isoformat() if log.completed_at else None,
             "is_completed": log.is_completed,
+            "has_modifications": log.has_modifications,
+            "notes": log.notes,
             "is_flagged": log.is_flagged,
             "flag_reason": log.flag_reason,
+            "coach_acknowledged": log.coach_acknowledged or False,
+            "coach_response": log.coach_response,
         })
 
     return {
@@ -245,8 +259,36 @@ def get_athlete_detail(
         "team": athlete.team,
         "training_goals": athlete.training_goals,
         "maxes": [
-            {"exercise_name": m.exercise_name, "max_weight": m.max_weight, "unit": m.unit}
+            {"id": m.id, "exercise_name": m.exercise_name, "max_weight": m.max_weight, "unit": m.unit, "recorded_at": m.recorded_at.isoformat(), "updated_at": (m.updated_at or m.recorded_at).isoformat()}
             for m in maxes
         ],
-        "recent_logs": log_data,
+        "recent_workouts": log_data,
     }
+
+
+class AcknowledgeRequest(BaseModel):
+    coach_response: Optional[str] = None
+
+
+@router.post("/workout-logs/{log_id}/acknowledge")
+def acknowledge_workout_log(
+    log_id: int,
+    data: AcknowledgeRequest,
+    current_coach: User = Depends(get_current_coach),
+    db: Session = Depends(get_db)
+):
+    log = db.query(WorkoutLog).filter(WorkoutLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Workout log not found")
+
+    # Verify the log belongs to one of this coach's athletes
+    athlete_ids = [a.id for a in current_coach.coached_athletes]
+    if log.athlete_id not in athlete_ids:
+        raise HTTPException(status_code=403, detail="Not authorized to acknowledge this workout log")
+
+    log.coach_acknowledged = True
+    log.coach_response = data.coach_response
+    log.acknowledged_at = datetime.utcnow()
+    db.commit()
+
+    return {"message": "Workout log acknowledged"}

@@ -58,6 +58,8 @@ export interface WorkoutLog {
   notes?: string;
   is_flagged: boolean;
   flag_reason?: string;
+  coach_acknowledged: boolean;
+  coach_response?: string;
 }
 
 export interface SetLog {
@@ -266,7 +268,7 @@ export const coachApi = {
   },
 
   getRoster: async () => {
-    const response = await apiClient.get<AthleteProfile[]>("/api/coaches/roster");
+    const response = await apiClient.get<{ athletes: AthleteProfile[] }>("/api/coaches/roster");
     return response.data;
   },
 
@@ -311,6 +313,13 @@ export const coachApi = {
   removeGroupMembers: async (groupId: number, athlete_ids: number[]) => {
     const response = await apiClient.delete(`/api/coaches/groups/${groupId}/members`, {
       data: { athlete_ids },
+    });
+    return response.data;
+  },
+
+  acknowledgeWorkoutLog: async (logId: number, coach_response?: string) => {
+    const response = await apiClient.post(`/api/coaches/workout-logs/${logId}/acknowledge`, {
+      coach_response: coach_response ?? null,
     });
     return response.data;
   },

@@ -191,11 +191,12 @@ export default function CreateProgramPage() {
   });
 
   // Roster query (used in step 4)
-  const { data: roster } = useQuery({
+  const { data: rosterData } = useQuery({
     queryKey: ["roster"],
     queryFn: () => coachApi.getRoster(),
     enabled: step === 4,
   });
+  const roster = rosterData?.athletes;
 
   // ── Workout draft helpers ─────────────────────────────────────────────────
 

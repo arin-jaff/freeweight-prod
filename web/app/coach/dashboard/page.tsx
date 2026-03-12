@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
@@ -9,16 +10,20 @@ import { getAuthData } from "@/lib/auth";
 
 export default function CoachDashboardPage() {
   const { user } = getAuthData();
+  const [copied, setCopied] = useState(false);
 
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ["coachDashboard"],
     queryFn: () => coachApi.getDashboard(),
   });
 
+  const inviteCode = user?.invite_code;
+
   const copyInviteCode = () => {
-    if (user?.invite_code) {
-      navigator.clipboard.writeText(user.invite_code);
-      alert("Invite code copied to clipboard!");
+    if (inviteCode) {
+      navigator.clipboard.writeText(inviteCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -64,18 +69,17 @@ export default function CoachDashboardPage() {
               <p className="text-secondary text-sm mb-4">
                 Share this code with athletes to add them to your roster
               </p>
-              <div className="flex items-center gap-4">
-                <div className="flex-1 bg-background border-2 border-primary rounded-lg px-6 py-4">
+              <div className="flex items-stretch gap-4">
+                <div className="flex-1 bg-background border-2 border-primary rounded-lg px-6 py-4 flex items-center justify-center">
                   <div className="text-3xl font-heading font-bold text-primary tracking-wider text-center">
-                    {user?.invite_code || "------"}
+                    {inviteCode || "------"}
                   </div>
                 </div>
                 <button
                   onClick={copyInviteCode}
                   className="btn-secondary whitespace-nowrap"
-                  disabled={!user?.invite_code}
                 >
-                  Copy Code
+                  {copied ? "Copied!" : "Copy Code"}
                 </button>
               </div>
             </div>
@@ -129,26 +133,6 @@ export default function CoachDashboardPage() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && dashboard?.total_athletes === 0 && (
-            <div className="mt-8 card text-center py-12">
-              <h3 className="text-xl font-heading font-bold text-text mb-2">
-                Get Started
-              </h3>
-              <p className="text-secondary mb-6">
-                Share your invite code with athletes to build your roster
-              </p>
-              <div className="max-w-md mx-auto bg-background border-2 border-primary rounded-lg px-6 py-4 mb-4">
-                <div className="text-3xl font-heading font-bold text-primary tracking-wider">
-                  {user?.invite_code || "------"}
-                </div>
-              </div>
-              <button onClick={copyInviteCode} className="btn-primary">
-                Copy Invite Code
-              </button>
             </div>
           )}
         </main>
