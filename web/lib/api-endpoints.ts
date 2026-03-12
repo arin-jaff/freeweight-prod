@@ -96,6 +96,7 @@ export interface AthleteProfile {
   sport?: string;
   team?: string;
   training_goals?: string;
+  injuries?: string;
   maxes: AthleteMax[];
   recent_workouts: WorkoutLog[];
 }
