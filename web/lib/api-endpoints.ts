@@ -118,8 +118,8 @@ export interface CoachDashboard {
   flagged_workouts: number;
   total_athletes: number;
   flagged_athletes: Array<{
-    athlete_id: number;
-    athlete_name: string;
+    id: number;
+    name: string;
     workout_name: string;
     flag_reason: string;
   }>;
