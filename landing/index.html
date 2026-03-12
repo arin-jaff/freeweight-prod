@@ -527,12 +527,13 @@
   // ── API CONFIG ──
   // Change this to your production backend URL when deploying
   const API_BASE = 'http://localhost:8001';
+  // Where the Next.js web app lives (same domain in production, separate port locally)
+  const WEB_APP_BASE = 'http://localhost:3000';
 
   function showError(id, msg) {
     const el = document.getElementById(id);
     el.textContent = msg;
     el.style.display = 'block';
-    // Hide success if showing
     const successId = id.replace('Error', 'Success');
     document.getElementById(successId).style.display = 'none';
   }
@@ -541,7 +542,6 @@
     const el = document.getElementById(id);
     el.textContent = msg;
     el.style.display = 'block';
-    // Hide error if showing
     const errorId = id.replace('Success', 'Error');
     document.getElementById(errorId).style.display = 'none';
   }
@@ -549,6 +549,26 @@
   function clearMessages(formId) {
     document.getElementById(formId + 'Error').style.display = 'none';
     document.getElementById(formId + 'Success').style.display = 'none';
+  }
+
+  function saveAuthAndRedirect(data) {
+    // Use the same localStorage keys as the web app (lib/auth.ts)
+    localStorage.setItem('auth_token', data.access_token);
+    if (data.user) {
+      localStorage.setItem('user', JSON.stringify(data.user));
+    }
+
+    // Redirect based on user type and onboarding status
+    const user = data.user;
+    let redirectPath;
+
+    if (user?.user_type === 'coach') {
+      redirectPath = user.onboarding_completed ? '/coach/dashboard' : '/coach/onboarding';
+    } else {
+      redirectPath = user?.onboarding_completed ? '/athlete/home' : '/athlete/onboarding';
+    }
+
+    window.location.href = WEB_APP_BASE + redirectPath;
   }
 
   // ── LOGIN ──
@@ -563,7 +583,6 @@
     const password = this.password.value;
 
     try {
-      // Login endpoint uses OAuth2 form encoding (username = email)
       const body = new URLSearchParams();
       body.append('username', email);
       body.append('password', password);
@@ -581,20 +600,8 @@
         return;
       }
 
-      // Store token
-      localStorage.setItem('access_token', data.access_token);
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
-
-      showSuccess('loginSuccess', 'Welcome back, ' + (data.user?.name || 'athlete') + '!');
-
-      // Redirect based on user type after brief delay
-      setTimeout(() => {
-        const userType = data.user?.user_type;
-        // For now, stay on the page — replace with your app routes when ready
-        window.location.reload();
-      }, 1000);
+      showSuccess('loginSuccess', 'Welcome back, ' + (data.user?.name || '') + '! Redirecting...');
+      setTimeout(() => saveAuthAndRedirect(data), 600);
 
     } catch (err) {
       showError('loginError', 'Could not connect to server. Is the backend running?');
@@ -643,18 +650,8 @@
         return;
       }
 
-      // Store token
-      localStorage.setItem('access_token', data.access_token);
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
-
-      showSuccess('signupSuccess', 'Account created! Welcome, ' + (data.user?.name || name) + '.');
-
-      // Redirect after brief delay
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      showSuccess('signupSuccess', 'Account created! Redirecting...');
+      setTimeout(() => saveAuthAndRedirect(data), 600);
 
     } catch (err) {
       showError('signupError', 'Could not connect to server. Is the backend running?');
