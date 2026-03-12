@@ -325,6 +325,7 @@ def get_athlete_detail(
         "sport": athlete.sport,
         "team": athlete.team,
         "training_goals": athlete.training_goals,
+        "injuries": athlete.injuries,
         "maxes": [
             {"id": m.id, "exercise_name": m.exercise_name, "max_weight": m.max_weight, "unit": m.unit, "recorded_at": m.recorded_at.isoformat(), "updated_at": (m.updated_at or m.recorded_at).isoformat()}
             for m in maxes
