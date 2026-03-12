@@ -55,6 +55,7 @@ class User(Base):
     # Coach-specific fields
     coaching_credentials = Column(Text, nullable=True)
     bio = Column(Text, nullable=True)
+    invite_code = Column(String(6), unique=True, nullable=True, index=True)  # 6-char code for coaches
 
     # Relationships
     coached_athletes = relationship(

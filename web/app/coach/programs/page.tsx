@@ -21,7 +21,7 @@ export default function CoachProgramsPage() {
   return (
     <AuthGuard requiredUserType="coach">
       <div className="min-h-screen bg-background">
-        <NavBar userName={user?.name || ""} userType="coach" />
+        <NavBar userName={user?.name || ""} userType="coach" profilePhoto={user?.profile_photo_url} />
 
         <main className="max-w-7xl mx-auto px-4 py-8">
           <div className="mb-8 flex justify-between items-center">

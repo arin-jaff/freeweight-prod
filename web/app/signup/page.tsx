@@ -33,7 +33,7 @@ export default function SignupPage() {
 
       // Redirect based on user type
       if (response.user.user_type === "coach") {
-        router.push("/coach/dashboard");
+        router.push("/coach/onboarding");
       } else {
         // Set flag so onboarding knows if athlete has a coach
         if (inviteCode) {

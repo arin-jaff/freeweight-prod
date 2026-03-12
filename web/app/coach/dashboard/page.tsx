@@ -15,14 +15,9 @@ export default function CoachDashboardPage() {
     queryFn: () => coachApi.getDashboard(),
   });
 
-  const { data: inviteCode } = useQuery({
-    queryKey: ["inviteCode"],
-    queryFn: () => coachApi.getInviteCode(),
-  });
-
   const copyInviteCode = () => {
-    if (inviteCode?.invite_code) {
-      navigator.clipboard.writeText(inviteCode.invite_code);
+    if (user?.invite_code) {
+      navigator.clipboard.writeText(user.invite_code);
       alert("Invite code copied to clipboard!");
     }
   };
@@ -30,7 +25,7 @@ export default function CoachDashboardPage() {
   return (
     <AuthGuard requiredUserType="coach">
       <div className="min-h-screen bg-background">
-        <NavBar userName={user?.name || ""} userType="coach" />
+        <NavBar userName={user?.name || ""} userType="coach" profilePhoto={user?.profile_photo_url} />
 
         <main className="max-w-7xl mx-auto px-4 py-8">
           <div className="mb-8">
@@ -72,13 +67,13 @@ export default function CoachDashboardPage() {
               <div className="flex items-center gap-4">
                 <div className="flex-1 bg-background border-2 border-primary rounded-lg px-6 py-4">
                   <div className="text-3xl font-heading font-bold text-primary tracking-wider text-center">
-                    {inviteCode?.invite_code || "------"}
+                    {user?.invite_code || "------"}
                   </div>
                 </div>
                 <button
                   onClick={copyInviteCode}
                   className="btn-secondary whitespace-nowrap"
-                  disabled={!inviteCode?.invite_code}
+                  disabled={!user?.invite_code}
                 >
                   Copy Code
                 </button>
@@ -117,7 +112,7 @@ export default function CoachDashboardPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-semibold text-text mb-1">
-                          {flagged.athlete_name}
+                          {flagged.name}
                         </h3>
                         <p className="text-sm text-secondary mb-2">{flagged.workout_name}</p>
                         <p className="text-error text-sm">
@@ -125,7 +120,7 @@ export default function CoachDashboardPage() {
                         </p>
                       </div>
                       <Link
-                        href={`/coach/roster?athlete=${flagged.athlete_id}`}
+                        href={`/coach/roster?athlete=${flagged.id}`}
                         className="text-primary hover:underline text-sm font-medium"
                       >
                         View Details →
@@ -148,7 +143,7 @@ export default function CoachDashboardPage() {
               </p>
               <div className="max-w-md mx-auto bg-background border-2 border-primary rounded-lg px-6 py-4 mb-4">
                 <div className="text-3xl font-heading font-bold text-primary tracking-wider">
-                  {inviteCode?.invite_code || "------"}
+                  {user?.invite_code || "------"}
                 </div>
               </div>
               <button onClick={copyInviteCode} className="btn-primary">

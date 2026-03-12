@@ -14,6 +14,7 @@ export interface User {
   onboarding_completed?: boolean;
   coaching_credentials?: string;
   bio?: string;
+  invite_code?: string;  // Only for coaches
 }
 
 export interface LoginResponse {
@@ -32,36 +33,16 @@ export interface SignupData {
 
 export const authApi = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
-    console.log("🌐 [AUTH API] Preparing login request...");
     const params = new URLSearchParams();
     params.append("username", email);
     params.append("password", password);
 
-    console.log("📤 [AUTH API] Request details:");
-    console.log("  URL: /api/auth/login");
-    console.log("  Method: POST");
-    console.log("  Content-Type: application/x-www-form-urlencoded");
-    console.log("  Body params:", params.toString());
-
-    try {
-      console.log("📡 [AUTH API] Sending request to backend...");
-      const response = await apiClient.post<LoginResponse>("/api/auth/login", params, {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      });
-
-      console.log("✅ [AUTH API] Response received!");
-      console.log("📥 [AUTH API] Status:", response.status);
-      console.log("📥 [AUTH API] Response data:", response.data);
-
-      return response.data;
-    } catch (error: any) {
-      console.error("❌ [AUTH API] Request failed!");
-      console.error("Error:", error);
-      console.error("Response:", error.response);
-      throw error;
-    }
+    const response = await apiClient.post<LoginResponse>("/api/auth/login", params, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+    return response.data;
   },
 
   signup: async (data: SignupData): Promise<LoginResponse> => {
@@ -71,6 +52,11 @@ export const authApi = {
 
   getMe: async (): Promise<User> => {
     const response = await apiClient.get<User>("/api/auth/me");
+    return response.data;
+  },
+
+  updateMe: async (data: Partial<User>): Promise<User> => {
+    const response = await apiClient.patch<User>("/api/auth/me", data);
     return response.data;
   },
 

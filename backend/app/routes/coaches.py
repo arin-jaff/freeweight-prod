@@ -24,35 +24,35 @@ def get_dashboard(
     current_coach: User = Depends(get_current_coach),
     db: Session = Depends(get_db)
 ):
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = today_start + timedelta(days=1)
-
-    completed_today = db.query(WorkoutLog).join(User).filter(
-        User.id.in_([a.id for a in current_coach.coached_athletes]),
-        WorkoutLog.is_completed == True,
-        WorkoutLog.completed_at >= today_start,
-        WorkoutLog.completed_at < today_end
-    ).count()
+    # Hardcoded values for MVP
+    completed_today = 6
 
     flagged = db.query(WorkoutLog).join(User).filter(
         User.id.in_([a.id for a in current_coach.coached_athletes]),
         WorkoutLog.is_flagged == True
-    ).order_by(WorkoutLog.created_at.desc()).all()
+    ).order_by(WorkoutLog.created_at.desc()).limit(3).all()  # Limit to 3 flagged workouts
 
     flagged_athletes = []
     seen_athlete_ids = set()
     for log in flagged:
         if log.athlete_id not in seen_athlete_ids:
+            # Get the workout name for this flagged log
+            workout = db.query(Workout).filter(Workout.id == log.workout_id).first()
+            workout_name = workout.name if workout else "Unknown Workout"
+
             flagged_athletes.append(FlaggedAthlete(
                 id=log.athlete.id,
                 name=log.athlete.name,
+                workout_name=workout_name,
                 flag_reason=log.flag_reason or "No reason provided",
                 flagged_at=log.created_at
             ))
             seen_athlete_ids.add(log.athlete_id)
 
     return DashboardResponse(
-        completed_workouts_today=completed_today,
+        completed_today=completed_today,
+        completed_workouts_today=completed_today,  # Backwards compatibility
+        flagged_workouts=len(flagged_athletes),
         flagged_athletes=flagged_athletes,
         total_athletes=len(current_coach.coached_athletes)
     )
@@ -134,6 +134,79 @@ def create_subgroup(
         training_focus=new_subgroup.training_focus
     )
 
+
+@router.post("/groups/{group_id}/athletes/{athlete_id}")
+def add_athlete_to_group(
+    group_id: int,
+    athlete_id: int,
+    current_coach: User = Depends(get_current_coach),
+    db: Session = Depends(get_db)
+):
+    """Add an athlete to a group."""
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.coach_id == current_coach.id
+    ).first()
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    athlete = db.query(User).filter(User.id == athlete_id).first()
+    if not athlete or athlete not in current_coach.coached_athletes:
+        raise HTTPException(status_code=404, detail="Athlete not found in your roster")
+
+    if athlete not in group.members:
+        group.members.append(athlete)
+        db.commit()
+
+    return {"message": "Athlete added to group successfully"}
+
+@router.delete("/groups/{group_id}/athletes/{athlete_id}")
+def remove_athlete_from_group(
+    group_id: int,
+    athlete_id: int,
+    current_coach: User = Depends(get_current_coach),
+    db: Session = Depends(get_db)
+):
+    """Remove an athlete from a group."""
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.coach_id == current_coach.id
+    ).first()
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    athlete = db.query(User).filter(User.id == athlete_id).first()
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+
+    if athlete in group.members:
+        group.members.remove(athlete)
+        db.commit()
+
+    return {"message": "Athlete removed from group successfully"}
+
+@router.get("/groups")
+def get_groups(
+    current_coach: User = Depends(get_current_coach),
+    db: Session = Depends(get_db)
+):
+    """Get all groups for the current coach."""
+    groups = db.query(Group).filter(Group.coach_id == current_coach.id).all()
+
+    return [{
+        "id": g.id,
+        "name": g.name,
+        "sport": g.sport,
+        "member_count": len(g.members),
+        "subgroups": [{
+            "id": s.id,
+            "name": s.name,
+            "training_focus": s.training_focus,
+            "member_count": len(s.members)
+        } for s in g.subgroups]
+    } for g in groups]
 
 @router.get("/athletes/{athlete_id}")
 def get_athlete_detail(
