@@ -12,6 +12,7 @@ class SignupRequest(BaseModel):
     training_goals: Optional[str] = None
     coaching_credentials: Optional[str] = None
     bio: Optional[str] = None
+    invite_code: Optional[str] = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -36,6 +37,7 @@ class UserResponse(BaseModel):
     onboarding_completed: bool = False
     coaching_credentials: Optional[str]
     bio: Optional[str]
+    invite_code: Optional[str] = None
 
     class Config:
         from_attributes = True

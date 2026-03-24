@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
-import { programApi } from "@/lib/api-endpoints";
+import { programApi, coachApi, AthleteProfile } from "@/lib/api-endpoints";
 import { getAuthData } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
@@ -20,6 +20,8 @@ export default function ProgramDetailPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignStartDate, setAssignStartDate] = useState("");
   const [assignAthleteId, setAssignAthleteId] = useState("");
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignSuccess, setAssignSuccess] = useState(false);
 
   const { data: program, isLoading } = useQuery({
     queryKey: ["program", programId],
@@ -32,6 +34,30 @@ export default function ProgramDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["program", programId] });
       queryClient.invalidateQueries({ queryKey: ["programs"] });
       router.push("/coach/programs");
+    },
+  });
+
+  const { data: rosterData } = useQuery({
+    queryKey: ["roster"],
+    queryFn: () => coachApi.getRoster(),
+    enabled: showAssignModal,
+  });
+  const roster = rosterData?.athletes;
+
+  const assignMutation = useMutation({
+    mutationFn: () =>
+      programApi.assign(programId, {
+        athlete_id: Number(assignAthleteId),
+        start_date: assignStartDate,
+      }),
+    onSuccess: () => {
+      setAssignSuccess(true);
+      setAssignError(null);
+      setAssignAthleteId("");
+      setAssignStartDate("");
+    },
+    onError: (err: any) => {
+      setAssignError(err?.response?.data?.detail ?? "Failed to assign program.");
     },
   });
 
@@ -256,11 +282,15 @@ export default function ProgramDetailPage() {
           )}
         </main>
 
-        {/* Assign Modal - Placeholder */}
+        {/* Assign Modal */}
         {showAssignModal && (
           <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
-            onClick={() => setShowAssignModal(false)}
+            onClick={() => {
+              setShowAssignModal(false);
+              setAssignSuccess(false);
+              setAssignError(null);
+            }}
           >
             <div
               className="bg-[#1F2937] rounded-xl p-6 max-w-md w-full"
@@ -269,16 +299,91 @@ export default function ProgramDetailPage() {
               <h2 className="text-2xl font-heading font-bold text-text mb-4">
                 Assign Program
               </h2>
-              <p className="text-secondary text-sm mb-4">
-                This feature is coming soon. You'll be able to assign programs to
-                individual athletes or groups.
-              </p>
-              <button
-                onClick={() => setShowAssignModal(false)}
-                className="btn-primary w-full"
-              >
-                Got it
-              </button>
+
+              {assignSuccess ? (
+                <div className="text-center py-4">
+                  <p className="text-primary font-medium mb-2">Program assigned!</p>
+                  <p className="text-secondary text-sm mb-6">
+                    The athlete will see this program on their scheduled start date.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowAssignModal(false);
+                      setAssignSuccess(false);
+                    }}
+                    className="btn-primary w-full"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {assignError && (
+                    <div className="mb-4 p-3 rounded-lg bg-error/10 border border-error/40 text-error text-sm">
+                      {assignError}
+                    </div>
+                  )}
+
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-text mb-2">
+                        Athlete <span className="text-error">*</span>
+                      </label>
+                      {!roster ? (
+                        <div className="input-field text-secondary text-sm">Loading athletes…</div>
+                      ) : roster.length === 0 ? (
+                        <div className="p-3 rounded-lg border border-secondary/20 text-secondary text-sm">
+                          No athletes on your roster yet.
+                        </div>
+                      ) : (
+                        <select
+                          value={assignAthleteId}
+                          onChange={(e) => setAssignAthleteId(e.target.value)}
+                          className="input-field"
+                        >
+                          <option value="">Select an athlete…</option>
+                          {roster.map((athlete: AthleteProfile) => (
+                            <option key={athlete.id} value={athlete.id}>
+                              {athlete.name}{athlete.sport ? ` — ${athlete.sport}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-text mb-2">
+                        Start Date <span className="text-error">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={assignStartDate}
+                        onChange={(e) => setAssignStartDate(e.target.value)}
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowAssignModal(false);
+                        setAssignError(null);
+                      }}
+                      className="btn-secondary flex-1"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => assignMutation.mutate()}
+                      disabled={!assignAthleteId || !assignStartDate || assignMutation.isPending}
+                      className="btn-primary flex-1"
+                    >
+                      {assignMutation.isPending ? "Assigning…" : "Assign Program"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
