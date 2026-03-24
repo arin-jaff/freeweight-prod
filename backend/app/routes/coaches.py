@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from pydantic import BaseModel
 from ..database import get_db
 from ..auth import get_current_coach
-from ..models import User, Group, Subgroup, WorkoutLog, AthleteMax, Workout
+from ..models import User, Group, Subgroup, WorkoutLog, AthleteMax, Workout, ProgramAssignment, group_members
 from ..schemas.coach import (
     DashboardResponse,
     RosterResponse,
@@ -92,8 +92,8 @@ def get_athlete_statuses(
     db: Session = Depends(get_db)
 ):
     """Get quick-view status for all athletes on the coach's roster."""
-    week_ago = datetime.utcnow() - timedelta(days=7)
-    three_days_ago = datetime.utcnow() - timedelta(days=3)
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    three_days_ago = datetime.now(timezone.utc) - timedelta(days=3)
 
     statuses = []
     for athlete in current_coach.coached_athletes:
@@ -282,6 +282,32 @@ def get_groups(
             "member_count": len(s.members)
         } for s in g.subgroups]
     } for g in groups]
+
+@router.delete("/groups/{group_id}")
+def delete_group(
+    group_id: int,
+    current_coach: User = Depends(get_current_coach),
+    db: Session = Depends(get_db)
+):
+    """Delete a group belonging to the current coach."""
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.coach_id == current_coach.id
+    ).first()
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Remove program assignments referencing this group
+    db.query(ProgramAssignment).filter(ProgramAssignment.group_id == group_id).delete()
+
+    # Remove all group members
+    db.execute(group_members.delete().where(group_members.c.group_id == group_id))
+
+    db.delete(group)
+    db.commit()
+
+    return {"message": "Group deleted successfully"}
 
 @router.get("/athletes/{athlete_id}")
 def get_athlete_detail(

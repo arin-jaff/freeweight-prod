@@ -105,7 +105,7 @@ export interface Group {
   id: number;
   name: string;
   sport?: string;
-  athlete_count: number;
+  member_count: number;
   subgroups: Subgroup[];
 }
 
@@ -113,7 +113,7 @@ export interface Subgroup {
   id: number;
   name: string;
   training_focus?: string;
-  athlete_count: number;
+  member_count: number;
 }
 
 export interface CoachDashboard {
