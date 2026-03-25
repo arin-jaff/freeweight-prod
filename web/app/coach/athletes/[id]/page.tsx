@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
 import { coachApi } from "@/lib/api-endpoints";
@@ -14,10 +15,24 @@ export default function CoachAthleteDetailPage() {
   const params = useParams();
   const athleteId = parseInt(params.id as string);
 
+  const queryClient = useQueryClient();
+
   const { data: athlete, isLoading, isError } = useQuery({
     queryKey: ["athleteDetail", athleteId],
     queryFn: () => coachApi.getAthleteDetail(athleteId),
     enabled: !isNaN(athleteId),
+  });
+
+  const [responseInputs, setResponseInputs] = useState<Record<number, string>>({});
+  const [acknowledgedIds, setAcknowledgedIds] = useState<Set<number>>(new Set());
+
+  const acknowledgeMutation = useMutation({
+    mutationFn: ({ logId, response }: { logId: number; response?: string }) =>
+      coachApi.acknowledgeWorkoutLog(logId, response),
+    onSuccess: (_data, { logId }) => {
+      setAcknowledgedIds((prev) => new Set(prev).add(logId));
+      queryClient.invalidateQueries({ queryKey: ["athleteDetail", athleteId] });
+    },
   });
 
   if (isLoading) {
@@ -89,6 +104,16 @@ export default function CoachAthleteDetailPage() {
             </div>
           </div>
 
+          {/* Injuries & Health */}
+          {athlete.injuries && (
+            <div className="card mb-6 border-amber-500/40 bg-amber-500/5">
+              <h2 className="text-lg font-heading font-bold text-amber-400 mb-2">
+                Injuries &amp; Health
+              </h2>
+              <p className="text-text text-sm whitespace-pre-wrap">{athlete.injuries}</p>
+            </div>
+          )}
+
           {/* Quick stats */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="card">
@@ -154,9 +179,51 @@ export default function CoachAthleteDetailPage() {
                           <p className="text-text text-sm mt-2 italic">{workout.notes}</p>
                         )}
                         {workout.is_flagged && workout.flag_reason && (
-                          <p className="text-error text-sm mt-2">
-                            <span className="font-medium">Flagged:</span> {workout.flag_reason}
-                          </p>
+                          <div className="mt-2">
+                            <p className="text-error text-sm">
+                              <span className="font-medium">Flagged:</span> {workout.flag_reason}
+                            </p>
+                            {workout.coach_acknowledged || acknowledgedIds.has(workout.id) ? (
+                              <div className="mt-2">
+                                <p className="text-primary text-sm font-medium">Acknowledged</p>
+                                {workout.coach_response && (
+                                  <p className="text-secondary text-sm italic mt-1">
+                                    Your response: {workout.coach_response}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="mt-3 space-y-2">
+                                <textarea
+                                  value={responseInputs[workout.id] ?? ""}
+                                  onChange={(e) =>
+                                    setResponseInputs((prev) => ({
+                                      ...prev,
+                                      [workout.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Optional response to athlete..."
+                                  className="w-full text-sm border border-secondary/30 rounded-lg px-3 py-2 bg-background text-text placeholder:text-secondary resize-none focus:outline-none focus:border-primary"
+                                  rows={2}
+                                />
+                                <button
+                                  onClick={() =>
+                                    acknowledgeMutation.mutate({
+                                      logId: workout.id,
+                                      response: responseInputs[workout.id] || undefined,
+                                    })
+                                  }
+                                  disabled={acknowledgeMutation.isPending}
+                                  className="btn-secondary text-sm py-1 px-3"
+                                >
+                                  {acknowledgeMutation.isPending ? "Saving..." : "Acknowledge"}
+                                </button>
+                                {acknowledgeMutation.isError && (
+                                  <p className="text-error text-xs">Failed to acknowledge. Try again.</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-2 ml-4">

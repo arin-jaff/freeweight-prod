@@ -19,9 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('users', sa.Column('invite_code', sa.String(6), nullable=True))
+    op.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code VARCHAR(6)')
     op.create_index(op.f('ix_users_invite_code'), 'users', ['invite_code'], unique=True)
-
 
 def downgrade() -> None:
     op.drop_index(op.f('ix_users_invite_code'), table_name='users')

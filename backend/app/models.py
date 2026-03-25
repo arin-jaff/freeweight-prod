@@ -205,6 +205,9 @@ class WorkoutLog(Base):
     rpe = Column(Integer, nullable=True)  # Session-level Rate of Perceived Exertion (1-10)
     is_flagged = Column(Boolean, default=False)
     flag_reason = Column(Text, nullable=True)
+    coach_acknowledged = Column(Boolean, default=False)
+    coach_response = Column(Text, nullable=True)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     athlete = relationship("User", back_populates="workout_logs")

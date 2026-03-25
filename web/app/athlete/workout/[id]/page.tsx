@@ -341,7 +341,7 @@ export default function WorkoutPage() {
                 <CustomSetInput
                   defaultWeight={targetWeight || 0}
                   defaultReps={prescribedReps}
-                  onLog={(weight, reps, rpe) => logCurrentSet(weight, reps, true, rpe)}
+                  onLog={(weight, reps) => logCurrentSet(weight, reps, true)}
                   onCancel={() => setShowCustomInput(false)}
                 />
               )}
@@ -477,17 +477,16 @@ function CustomSetInput({
 }: {
   defaultWeight: number;
   defaultReps: number;
-  onLog: (weight: number, reps: number, rpe?: number) => void;
+  onLog: (weight: number, reps: number) => void;
   onCancel: () => void;
 }) {
   const [weight, setWeight] = useState(defaultWeight.toString());
   const [reps, setReps] = useState(defaultReps.toString());
-  const [rpe, setRpe] = useState("");
 
   return (
     <div className="card space-y-3">
       <h4 className="text-sm font-medium text-text">Log Actual Set</h4>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-secondary block mb-1">Weight (lbs)</label>
           <input
@@ -507,18 +506,6 @@ function CustomSetInput({
             className="input-field py-2 text-sm text-center"
           />
         </div>
-        <div>
-          <label className="text-xs text-secondary block mb-1">RPE (1-10)</label>
-          <input
-            type="number"
-            min="1"
-            max="10"
-            value={rpe}
-            onChange={(e) => setRpe(e.target.value)}
-            className="input-field py-2 text-sm text-center"
-            placeholder="—"
-          />
-        </div>
       </div>
       <div className="flex gap-3">
         <button onClick={onCancel} className="btn-secondary flex-1 py-2 text-sm">
@@ -529,7 +516,7 @@ function CustomSetInput({
             const w = parseFloat(weight);
             const r = parseInt(reps);
             if (!isNaN(w) && !isNaN(r) && r > 0) {
-              onLog(w, r, rpe ? parseInt(rpe) : undefined);
+              onLog(w, r);
             }
           }}
           className="btn-primary flex-1 py-2 text-sm"

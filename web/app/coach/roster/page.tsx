@@ -2,9 +2,11 @@
 
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
+import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
 import apiClient from "@/lib/api-client";
+import { programApi, coachApi } from "@/lib/api-endpoints";
 import { getAuthData } from "@/lib/auth";
 
 interface Athlete {
@@ -38,6 +40,13 @@ export default function CoachRosterPage() {
   const [newGroupSport, setNewGroupSport] = useState("");
   const [selectedView, setSelectedView] = useState<"all" | "groups">("all");
 
+  // Group management panel state
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [assignProgramId, setAssignProgramId] = useState("");
+  const [assignStartDate, setAssignStartDate] = useState("");
+  const [assignSuccess, setAssignSuccess] = useState(false);
+  const [manageError, setManageError] = useState<string | null>(null);
+
   const { data: roster } = useQuery({
     queryKey: ["roster"],
     queryFn: async () => {
@@ -54,6 +63,12 @@ export default function CoachRosterPage() {
     },
   });
 
+  const { data: programs } = useQuery({
+    queryKey: ["programs"],
+    queryFn: () => programApi.list(),
+    enabled: selectedGroup !== null,
+  });
+
   const createGroupMutation = useMutation({
     mutationFn: async (data: { name: string; sport?: string }) => {
       const response = await apiClient.post("/api/coaches/groups", data);
@@ -67,6 +82,77 @@ export default function CoachRosterPage() {
     },
   });
 
+  const addAthleteMutation = useMutation({
+    mutationFn: async (athleteId: number) => {
+      const response = await apiClient.post(
+        `/api/coaches/groups/${selectedGroup!.id}/athletes/${athleteId}`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["roster"] });
+      setManageError(null);
+    },
+    onError: (err: any) => {
+      setManageError(err?.response?.data?.detail ?? "Failed to add athlete.");
+    },
+  });
+
+  const removeAthleteMutation = useMutation({
+    mutationFn: async (athleteId: number) => {
+      const response = await apiClient.delete(
+        `/api/coaches/groups/${selectedGroup!.id}/athletes/${athleteId}`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["roster"] });
+      setManageError(null);
+    },
+    onError: (err: any) => {
+      setManageError(err?.response?.data?.detail ?? "Failed to remove athlete.");
+    },
+  });
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: () => coachApi.deleteGroup(selectedGroup!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["roster"] });
+      closeManagePanel();
+    },
+    onError: (err: any) => {
+      setManageError(err?.response?.data?.detail ?? "Failed to delete group.");
+    },
+  });
+
+  const assignProgramMutation = useMutation({
+    mutationFn: () =>
+      programApi.assign(Number(assignProgramId), {
+        group_id: selectedGroup!.id,
+        start_date: assignStartDate,
+      }),
+    onSuccess: () => {
+      setAssignSuccess(true);
+      setManageError(null);
+      setAssignProgramId("");
+      setAssignStartDate("");
+    },
+    onError: (err: any) => {
+      setManageError(err?.response?.data?.detail ?? "Failed to assign program.");
+    },
+  });
+
+  const groupMembers = selectedGroup
+    ? roster?.filter((a) => a.groups.some((g) => g.id === selectedGroup.id)) ?? []
+    : [];
+
+  const nonMembers = selectedGroup
+    ? roster?.filter((a) => !a.groups.some((g) => g.id === selectedGroup.id)) ?? []
+    : [];
+
   const handleCreateGroup = (e: React.FormEvent) => {
     e.preventDefault();
     if (newGroupName.trim()) {
@@ -75,6 +161,14 @@ export default function CoachRosterPage() {
         sport: newGroupSport || undefined,
       });
     }
+  };
+
+  const closeManagePanel = () => {
+    setSelectedGroup(null);
+    setAssignProgramId("");
+    setAssignStartDate("");
+    setAssignSuccess(false);
+    setManageError(null);
   };
 
   return (
@@ -126,7 +220,7 @@ export default function CoachRosterPage() {
               {roster && roster.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {roster.map((athlete) => (
-                    <div key={athlete.id} className="card">
+                    <Link key={athlete.id} href={`/coach/athletes/${athlete.id}`} className="card block hover:border-primary/40 transition-colors">
                       <h3 className="text-xl font-heading font-bold text-text mb-2">
                         {athlete.name}
                       </h3>
@@ -157,7 +251,7 @@ export default function CoachRosterPage() {
                           ))}
                         </div>
                       )}
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : (
@@ -193,24 +287,33 @@ export default function CoachRosterPage() {
                             <p className="text-secondary text-sm mt-1">{group.sport}</p>
                           )}
                         </div>
-                        <span className="px-3 py-1 bg-primary/20 text-primary rounded-lg text-sm font-medium">
-                          {group.member_count} members
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="px-3 py-1 bg-primary/20 text-primary rounded-lg text-sm font-medium">
+                            {group.member_count} members
+                          </span>
+                          <button
+                            onClick={() => setSelectedGroup(group)}
+                            className="btn-secondary text-sm py-1 px-3"
+                          >
+                            Manage
+                          </button>
+                        </div>
                       </div>
 
                       {groupAthletes && groupAthletes.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {groupAthletes.map((athlete) => (
-                            <div
+                            <Link
                               key={athlete.id}
-                              className="bg-background rounded-lg p-4 border border-secondary/10"
+                              href={`/coach/athletes/${athlete.id}`}
+                              className="bg-background rounded-lg p-4 border border-secondary/10 block hover:border-primary/40 transition-colors"
                             >
                               <h4 className="font-semibold text-text mb-1">{athlete.name}</h4>
                               <p className="text-xs text-secondary">{athlete.email}</p>
                               {athlete.team && (
                                 <p className="text-xs text-secondary mt-1">{athlete.team}</p>
                               )}
-                            </div>
+                            </Link>
                           ))}
                         </div>
                       ) : (
@@ -296,6 +399,172 @@ export default function CoachRosterPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Group Management Panel */}
+        {selectedGroup && (
+          <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
+            onClick={closeManagePanel}
+          >
+            <div
+              className="bg-[#1F2937] rounded-xl p-6 max-w-lg w-full max-h-[85vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-heading font-bold text-text">
+                    {selectedGroup.name}
+                  </h2>
+                  {selectedGroup.sport && (
+                    <p className="text-secondary text-sm mt-1">{selectedGroup.sport}</p>
+                  )}
+                </div>
+                <button
+                  onClick={closeManagePanel}
+                  className="text-secondary hover:text-text text-xl leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {manageError && (
+                <div className="mb-4 p-3 rounded-lg bg-error/10 border border-error/40 text-error text-sm">
+                  {manageError}
+                </div>
+              )}
+
+              {/* Section 1: Current Members */}
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-secondary uppercase tracking-wide mb-3">
+                  Members ({groupMembers.length})
+                </h3>
+                {groupMembers.length > 0 ? (
+                  <div className="space-y-2">
+                    {groupMembers.map((athlete) => (
+                      <div
+                        key={athlete.id}
+                        className="flex items-center justify-between bg-background rounded-lg px-4 py-3 border border-secondary/10"
+                      >
+                        <div>
+                          <p className="font-medium text-text text-sm">{athlete.name}</p>
+                          <p className="text-xs text-secondary">{athlete.email}</p>
+                        </div>
+                        <button
+                          onClick={() => removeAthleteMutation.mutate(athlete.id)}
+                          disabled={removeAthleteMutation.isPending}
+                          className="text-xs text-error hover:text-error/80 font-medium disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-secondary text-sm">No members yet</p>
+                )}
+              </div>
+
+              {/* Section 2: Add Athletes */}
+              {nonMembers.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-secondary uppercase tracking-wide mb-3">
+                    Add Athletes
+                  </h3>
+                  <div className="space-y-2">
+                    {nonMembers.map((athlete) => (
+                      <div
+                        key={athlete.id}
+                        className="flex items-center justify-between bg-background rounded-lg px-4 py-3 border border-secondary/10"
+                      >
+                        <div>
+                          <p className="font-medium text-text text-sm">{athlete.name}</p>
+                          <p className="text-xs text-secondary">{athlete.email}</p>
+                        </div>
+                        <button
+                          onClick={() => addAthleteMutation.mutate(athlete.id)}
+                          disabled={addAthleteMutation.isPending}
+                          className="text-xs text-primary hover:text-primary/80 font-medium disabled:opacity-50"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 3: Assign Program */}
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-secondary uppercase tracking-wide mb-3">
+                  Assign Program to Group
+                </h3>
+                {assignSuccess ? (
+                  <div className="text-center py-3">
+                    <p className="text-primary font-medium mb-1">Program assigned!</p>
+                    <p className="text-secondary text-sm mb-4">
+                      All group members will see it on their scheduled start date.
+                    </p>
+                    <button
+                      onClick={() => setAssignSuccess(false)}
+                      className="btn-secondary text-sm"
+                    >
+                      Assign Another
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <select
+                      value={assignProgramId}
+                      onChange={(e) => setAssignProgramId(e.target.value)}
+                      className="input-field"
+                    >
+                      <option value="">Select a program…</option>
+                      {programs
+                        ?.filter((p) => !p.archived)
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                    </select>
+                    <input
+                      type="date"
+                      value={assignStartDate}
+                      onChange={(e) => setAssignStartDate(e.target.value)}
+                      className="input-field"
+                    />
+                    <button
+                      onClick={() => assignProgramMutation.mutate()}
+                      disabled={!assignProgramId || !assignStartDate || assignProgramMutation.isPending}
+                      className="btn-primary w-full"
+                    >
+                      {assignProgramMutation.isPending ? "Assigning…" : "Assign Program"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Delete Group */}
+              <div className="pt-4 border-t border-secondary/20">
+                <button
+                  onClick={() => {
+                    if (
+                      confirm(
+                        "Are you sure? This will delete the group and remove all members."
+                      )
+                    ) {
+                      deleteGroupMutation.mutate();
+                    }
+                  }}
+                  disabled={deleteGroupMutation.isPending}
+                  className="w-full py-2 px-4 rounded-lg font-medium text-sm text-error border border-error/40 hover:bg-error/10 transition-colors disabled:opacity-50"
+                >
+                  {deleteGroupMutation.isPending ? "Deleting…" : "Delete Group"}
+                </button>
+              </div>
             </div>
           </div>
         )}

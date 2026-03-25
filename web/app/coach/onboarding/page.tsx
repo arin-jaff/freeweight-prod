@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAuthData } from "@/lib/auth";
+import { getAuthData, saveAuthData } from "@/lib/auth";
 import apiClient from "@/lib/api-client";
 
 export default function CoachOnboardingPage() {
@@ -40,19 +40,15 @@ export default function CoachOnboardingPage() {
 
     try {
       // Update user profile with onboarding data
-      await apiClient.patch("/api/auth/me", {
+      const response = await apiClient.patch("/api/auth/me", {
         ...formData,
         onboarding_completed: true,
       });
 
-      // Update localStorage user data
-      if (user) {
-        const updatedUser = {
-          ...user,
-          ...formData,
-          onboarding_completed: true,
-        };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
+      // Update localStorage with server response to preserve all fields (e.g. invite_code)
+      const { token } = getAuthData();
+      if (token) {
+        saveAuthData(token, response.data);
       }
 
       // Redirect to coach dashboard
