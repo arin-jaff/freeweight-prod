@@ -186,6 +186,7 @@ class Exercise(Base):
     target_exercise = Column(String, nullable=True)  # Which max to use: "squat", "deadlift", etc.
     video_url = Column(String, nullable=True)
     coach_notes = Column(Text, nullable=True)
+    rest_seconds = Column(Integer, nullable=True)  # Rest time between sets in seconds (default: 90)
     order = Column(Integer, nullable=False)  # Order within workout
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -242,3 +243,20 @@ class ExerciseCatalog(Base):
     is_custom = Column(Boolean, default=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # null for predefined
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Waitlist(Base):
+    __tablename__ = "waitlist"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class PageView(Base):
+    __tablename__ = "page_views"
+
+    id = Column(Integer, primary_key=True, index=True)
+    page_path = Column(String, nullable=False)  # e.g., "/", "/pricing", "/login"
+    user_agent = Column(String, nullable=True)
+    ip_address = Column(String, nullable=True)
+    referrer = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
