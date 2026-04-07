@@ -4,6 +4,29 @@ import apiClient from "./api-client";
 // TYPE DEFINITIONS
 // ============================================================================
 
+export interface ParsedExercise {
+  name: string;
+  sets: number;
+  reps: number;
+  coach_notes: string | null;
+  order: number;
+  rest_seconds: number | null;
+}
+
+export interface ParsedWorkout {
+  name: string;
+  day_offset: number;
+  description: string | null;
+  exercises: ParsedExercise[];
+}
+
+export interface ParsedProgram {
+  program_name: string;
+  description: string | null;
+  workouts: ParsedWorkout[];
+  program_type?: string;
+}
+
 export interface AthleteMax {
   id: number;
   exercise_name: string;
@@ -47,6 +70,23 @@ export interface Program {
   updated_at?: string;
   archived?: boolean;
   workouts: Workout[];
+  program_type: string;   // "strength" or "rehab"
+  body_regions: string[] | null;
+}
+
+export interface Notification {
+  id: number;
+  athlete_id: number;
+  athlete_name: string;
+  workout_log_id: number | null;
+  program_id: number | null;
+  program_name: string | null;
+  message: string;
+  notification_type: "rehab_assigned" | "injury_no_rehab";
+  is_read: boolean;
+  created_at: string;
+  body_region: string | null;
+  body_region_detail: string | null;
 }
 
 export interface WorkoutLog {
@@ -361,6 +401,26 @@ export const coachApi = {
     return response.data;
   },
 
+  getNotifications: async () => {
+    const response = await apiClient.get<Notification[]>("/api/coaches/notifications");
+    return response.data;
+  },
+
+  getUnreadNotificationCount: async () => {
+    const response = await apiClient.get<{ count: number }>("/api/coaches/notifications/unread-count");
+    return response.data;
+  },
+
+  markNotificationRead: async (id: number) => {
+    const response = await apiClient.patch(`/api/coaches/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllNotificationsRead: async () => {
+    const response = await apiClient.patch("/api/coaches/notifications/read-all");
+    return response.data;
+  },
+
   // Subgroup Management
   createSubgroup: async (groupId: number, name: string, training_focus?: string) => {
     const response = await apiClient.post(`/api/coaches/groups/${groupId}/subgroups`, {
@@ -417,13 +477,25 @@ export const programApi = {
     return response.data;
   },
 
-  create: async (data: { name: string; description?: string }) => {
+  create: async (data: { name: string; description?: string; program_type?: string; body_regions?: string[] | null }) => {
     const response = await apiClient.post<Program>("/api/programs", data);
     return response.data;
   },
 
   update: async (programId: number, data: { name?: string; description?: string }) => {
     const response = await apiClient.put<Program>(`/api/programs/${programId}`, data);
+    return response.data;
+  },
+
+  delete: async (programId: number) => {
+    const response = await apiClient.delete(`/api/programs/${programId}`);
+    return response.data;
+  },
+
+  duplicate: async (programId: number) => {
+    const response = await apiClient.post<{ program_id: number; program_name: string }>(
+      `/api/programs/${programId}/duplicate`
+    );
     return response.data;
   },
 
@@ -485,6 +557,25 @@ export const programApi = {
 
   deleteExercise: async (exerciseId: number) => {
     const response = await apiClient.delete(`/api/programs/exercises/${exerciseId}`);
+    return response.data;
+  },
+
+  parseProgram: async (formData: FormData) => {
+    const response = await apiClient.post<ParsedProgram>(
+      "/api/coaches/programs/parse",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+    return response.data;
+  },
+
+  importProgram: async (data: ParsedProgram) => {
+    const response = await apiClient.post<{
+      program_id: number;
+      program_name: string;
+      workout_count: number;
+      exercise_count: number;
+    }>("/api/coaches/programs/import", data);
     return response.data;
   },
 
