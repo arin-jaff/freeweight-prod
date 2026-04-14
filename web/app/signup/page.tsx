@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, saveAuthData, SignupData } from "@/lib/auth";
+import { extractErrorMessage } from "@/lib/utils";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function SignupPage() {
         router.push("/athlete/onboarding");
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Signup failed. Please try again.");
+      setError(extractErrorMessage(err, "Signup failed. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -146,7 +147,7 @@ export default function SignupPage() {
             {formData.user_type === "athlete" && (
               <div>
                 <label htmlFor="invite_code" className="block text-sm font-medium text-text mb-2">
-                  Coach Invite Code (Optional)
+                  Invite Code (Optional)
                 </label>
                 <input
                   id="invite_code"
@@ -158,7 +159,7 @@ export default function SignupPage() {
                   onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 />
                 <p className="text-xs text-secondary mt-1">
-                  Enter your coach's invite code to join their team
+                  Enter your coach's invite code or a group invite code to join their team
                 </p>
               </div>
             )}

@@ -8,6 +8,7 @@ import NavBar from "@/components/NavBar";
 import apiClient from "@/lib/api-client";
 import { programApi, coachApi } from "@/lib/api-endpoints";
 import { getAuthData } from "@/lib/auth";
+import { extractErrorMessage } from "@/lib/utils";
 
 interface Athlete {
   id: number;
@@ -23,6 +24,7 @@ interface Group {
   id: number;
   name: string;
   sport?: string;
+  invite_code?: string;
   member_count: number;
   subgroups: Array<{
     id: number;
@@ -46,14 +48,16 @@ export default function CoachRosterPage() {
   const [assignStartDate, setAssignStartDate] = useState("");
   const [assignSuccess, setAssignSuccess] = useState(false);
   const [manageError, setManageError] = useState<string | null>(null);
+  const [copiedGroupCode, setCopiedGroupCode] = useState(false);
 
-  const { data: roster } = useQuery({
+  const { data: rosterData } = useQuery({
     queryKey: ["roster"],
     queryFn: async () => {
       const response = await apiClient.get<{ athletes: Athlete[] }>("/api/coaches/roster");
-      return response.data.athletes;
+      return response.data;
     },
   });
+  const roster = rosterData?.athletes;
 
   const { data: groups } = useQuery({
     queryKey: ["groups"],
@@ -69,6 +73,8 @@ export default function CoachRosterPage() {
     enabled: selectedGroup !== null,
   });
 
+  const [createGroupError, setCreateGroupError] = useState<string | null>(null);
+
   const createGroupMutation = useMutation({
     mutationFn: async (data: { name: string; sport?: string }) => {
       const response = await apiClient.post("/api/coaches/groups", data);
@@ -79,6 +85,10 @@ export default function CoachRosterPage() {
       setShowGroupModal(false);
       setNewGroupName("");
       setNewGroupSport("");
+      setCreateGroupError(null);
+    },
+    onError: (err: any) => {
+      setCreateGroupError(extractErrorMessage(err, "Failed to create group."));
     },
   });
 
@@ -95,7 +105,7 @@ export default function CoachRosterPage() {
       setManageError(null);
     },
     onError: (err: any) => {
-      setManageError(err?.response?.data?.detail ?? "Failed to add athlete.");
+      setManageError(extractErrorMessage(err, "Failed to add athlete."));
     },
   });
 
@@ -112,7 +122,7 @@ export default function CoachRosterPage() {
       setManageError(null);
     },
     onError: (err: any) => {
-      setManageError(err?.response?.data?.detail ?? "Failed to remove athlete.");
+      setManageError(extractErrorMessage(err, "Failed to remove athlete."));
     },
   });
 
@@ -124,7 +134,7 @@ export default function CoachRosterPage() {
       closeManagePanel();
     },
     onError: (err: any) => {
-      setManageError(err?.response?.data?.detail ?? "Failed to delete group.");
+      setManageError(extractErrorMessage(err, "Failed to delete group."));
     },
   });
 
@@ -141,7 +151,7 @@ export default function CoachRosterPage() {
       setAssignStartDate("");
     },
     onError: (err: any) => {
-      setManageError(err?.response?.data?.detail ?? "Failed to assign program.");
+      setManageError(extractErrorMessage(err, "Failed to assign program."));
     },
   });
 
@@ -169,6 +179,7 @@ export default function CoachRosterPage() {
     setAssignStartDate("");
     setAssignSuccess(false);
     setManageError(null);
+    setCopiedGroupCode(false);
   };
 
   return (
@@ -343,7 +354,7 @@ export default function CoachRosterPage() {
         {showGroupModal && (
           <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
-            onClick={() => setShowGroupModal(false)}
+            onClick={() => { setShowGroupModal(false); setCreateGroupError(null); }}
           >
             <div
               className="bg-[#1F2937] rounded-xl p-6 max-w-md w-full"
@@ -352,6 +363,11 @@ export default function CoachRosterPage() {
               <h2 className="text-2xl font-heading font-bold text-text mb-4">
                 Create New Group
               </h2>
+              {createGroupError && (
+                <div className="mb-4 p-3 rounded-lg bg-error/10 border border-error/40 text-error text-sm">
+                  {createGroupError}
+                </div>
+              )}
               <form onSubmit={handleCreateGroup} className="space-y-4">
                 <div>
                   <label htmlFor="groupName" className="block text-sm font-medium text-text mb-2">
@@ -385,7 +401,7 @@ export default function CoachRosterPage() {
                 <div className="flex gap-3 mt-6">
                   <button
                     type="button"
-                    onClick={() => setShowGroupModal(false)}
+                    onClick={() => { setShowGroupModal(false); setCreateGroupError(null); }}
                     className="btn-secondary flex-1"
                   >
                     Cancel
@@ -429,6 +445,33 @@ export default function CoachRosterPage() {
                   ✕
                 </button>
               </div>
+
+              {/* Group Invite Code */}
+              {selectedGroup.invite_code && (
+                <div className="mb-6 p-4 rounded-lg bg-background border border-secondary/20">
+                  <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-2">
+                    Group Invite Code
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-xl font-bold text-primary tracking-widest">
+                      {selectedGroup.invite_code}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedGroup.invite_code!);
+                        setCopiedGroupCode(true);
+                        setTimeout(() => setCopiedGroupCode(false), 2000);
+                      }}
+                      className="text-xs px-3 py-1 rounded-md bg-primary/20 text-primary hover:bg-primary/30 transition-colors font-medium"
+                    >
+                      {copiedGroupCode ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-secondary mt-2">
+                    Athletes can use this code (instead of your personal coach code) to sign up and be automatically added to this group.
+                  </p>
+                </div>
+              )}
 
               {manageError && (
                 <div className="mb-4 p-3 rounded-lg bg-error/10 border border-error/40 text-error text-sm">

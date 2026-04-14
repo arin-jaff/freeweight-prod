@@ -566,6 +566,40 @@ def join_coach(
     return {"message": f"Connected to coach {coach.name}", "coach_name": coach.name, "coach_id": coach.id}
 
 
+# ─── Join Group ───────────────────────────────────────────────────────────────
+
+@router.post("/join-group")
+def join_group(
+    data: dict,
+    current_athlete: models.User = Depends(get_current_athlete),
+    db: Session = Depends(get_db)
+):
+    """Join a group using its invite code. Athlete must already belong to the group's coach."""
+    invite_code = (data.get("invite_code") or "").upper()
+    if not invite_code:
+        raise HTTPException(status_code=400, detail="invite_code is required")
+
+    group = db.query(models.Group).filter(models.Group.invite_code == invite_code).first()
+    if not group:
+        raise HTTPException(status_code=400, detail="Invalid group invite code")
+
+    # Validate the athlete belongs to the same coach as the group
+    coach = db.query(models.User).filter(models.User.id == group.coach_id).first()
+    if not coach or current_athlete not in coach.coached_athletes:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not on this coach's roster. Join the coach first."
+        )
+
+    if current_athlete in group.members:
+        raise HTTPException(status_code=409, detail="Already a member of this group")
+
+    group.members.append(current_athlete)
+    db.commit()
+
+    return {"message": f"Joined group {group.name}", "group_name": group.name, "group_id": group.id}
+
+
 # ─── Calendar ─────────────────────────────────────────────────────────────────
 
 @router.get("/calendar", response_model=list[CalendarWorkout])
@@ -941,40 +975,57 @@ def flag_workout(
             if data.body_region:
                 region_label = models.BODY_REGION_LABELS.get(data.body_region, data.body_region)
 
-                matching = db.query(models.Program).filter(
-                    models.Program.coach_id == coach.id,
-                    models.Program.program_type == "rehab",
-                    models.Program.body_regions.contains([data.body_region]),
-                    models.Program.archived == False,
-                ).all()
+                if data.opt_in_rehab:
+                    # Auto-assign matching rehab program and notify coach
+                    matching = db.query(models.Program).filter(
+                        models.Program.coach_id == coach.id,
+                        models.Program.program_type == "rehab",
+                        models.Program.body_regions.contains([data.body_region]),
+                        models.Program.archived == False,
+                    ).all()
 
-                if matching:
-                    # Most overlap with the flagged region; break ties by newest
-                    best = max(
-                        matching,
-                        key=lambda p: (
-                            len(set(p.body_regions or []) & {data.body_region}),
-                            p.created_at,
-                        ),
-                    )
-                    db.add(models.ProgramAssignment(
-                        program_id=best.id,
-                        athlete_id=current_athlete.id,
-                        start_date=datetime.now(timezone.utc),
-                    ))
-                    db.add(models.Notification(
-                        coach_id=coach.id,
-                        athlete_id=current_athlete.id,
-                        workout_log_id=workout_log.id,
-                        program_id=best.id,
-                        notification_type="rehab_assigned",
-                        message=(
-                            f"{current_athlete.name} flagged a {region_label} injury — "
-                            f"'{best.name}' was automatically assigned."
-                        ),
-                        is_read=False,
-                    ))
+                    if matching:
+                        # Most overlap with the flagged region; break ties by newest
+                        best = max(
+                            matching,
+                            key=lambda p: (
+                                len(set(p.body_regions or []) & {data.body_region}),
+                                p.created_at,
+                            ),
+                        )
+                        db.add(models.ProgramAssignment(
+                            program_id=best.id,
+                            athlete_id=current_athlete.id,
+                            start_date=datetime.now(timezone.utc),
+                        ))
+                        db.add(models.Notification(
+                            coach_id=coach.id,
+                            athlete_id=current_athlete.id,
+                            workout_log_id=workout_log.id,
+                            program_id=best.id,
+                            notification_type="rehab_assigned",
+                            message=(
+                                f"{current_athlete.name} flagged a {region_label} injury — "
+                                f"'{best.name}' was automatically assigned."
+                            ),
+                            is_read=False,
+                        ))
+                    else:
+                        db.add(models.Notification(
+                            coach_id=coach.id,
+                            athlete_id=current_athlete.id,
+                            workout_log_id=workout_log.id,
+                            program_id=None,
+                            notification_type="injury_no_rehab",
+                            message=(
+                                f"{current_athlete.name} flagged a {region_label} injury — "
+                                f"no matching rehab program found. "
+                                f"Assign an existing program or create a new one."
+                            ),
+                            is_read=False,
+                        ))
                 else:
+                    # Athlete did not opt in to rehab — notify coach without auto-assigning
                     db.add(models.Notification(
                         coach_id=coach.id,
                         athlete_id=current_athlete.id,
@@ -982,9 +1033,8 @@ def flag_workout(
                         program_id=None,
                         notification_type="injury_no_rehab",
                         message=(
-                            f"{current_athlete.name} flagged a {region_label} injury — "
-                            f"no matching rehab program found. "
-                            f"Assign an existing program or create a new one."
+                            f"{current_athlete.name} flagged a {region_label} issue "
+                            f"but did not request a rehab program."
                         ),
                         is_read=False,
                     ))
