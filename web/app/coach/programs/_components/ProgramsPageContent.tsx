@@ -193,10 +193,14 @@ function DraggableProgramCard({
       {...listeners}
       {...attributes}
       style={{ opacity: isDragging ? 0.4 : 1 }}
-      className="card hover:border-primary/40 transition-colors relative flex flex-col"
+      className="card hover:border-primary/40 transition-colors relative"
     >
-      {/* Three-dot menu */}
-      <div className="absolute top-4 right-4" data-menu>
+      {/* Three-dot menu — absolute, stops propagation so it doesn't trigger Link */}
+      <div
+        className="absolute top-3 right-3 z-10"
+        data-menu
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={() => onToggleMenu(openMenuId === program.id ? null : program.id)}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-text bg-secondary/10 hover:bg-secondary/20 transition-colors text-xl font-bold leading-none"
@@ -216,7 +220,7 @@ function DraggableProgramCard({
               onClick={() => onDuplicate(program.id)}
               className="w-full text-left px-4 py-2.5 text-sm text-zinc-100 hover:bg-zinc-800 transition-colors"
             >
-              Duplicate
+              {actionLoading === program.id ? "Duplicating…" : "Duplicate"}
             </button>
             {showArchived ? (
               <button
@@ -243,46 +247,42 @@ function DraggableProgramCard({
         )}
       </div>
 
-      {/* Card body */}
-      <div className="pr-10 flex-1">
-        <div className="flex items-start gap-2 mb-3">
-          <h3 className="text-xl font-heading font-bold text-text">
+      {/* Entire card body is the clickable link */}
+      <Link href={`/coach/programs/${program.id}`} className="block pr-10">
+        {/* Name row + type pill */}
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <span className="font-bold text-text text-sm leading-snug">
             {program.name}
-          </h3>
+          </span>
           {program.archived && (
-            <span className="shrink-0 text-xs bg-secondary/20 text-secondary px-2 py-1 rounded mt-0.5">
+            <span className="flex-shrink-0 text-[10px] bg-secondary/20 text-secondary px-1.5 py-0.5 rounded-full">
               Archived
+            </span>
+          )}
+          {program.program_type === "rehab" ? (
+            <span className="flex-shrink-0 text-[10px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-400/30">
+              Rehab / PT
+            </span>
+          ) : (
+            <span className="flex-shrink-0 text-[10px] bg-secondary/15 text-secondary px-1.5 py-0.5 rounded-full border border-secondary/20">
+              Strength
             </span>
           )}
         </div>
 
-        {program.description && (
-          <p className="text-secondary text-sm mb-4 line-clamp-2">
-            {program.description}
-          </p>
-        )}
-
-        <div className="space-y-2 text-sm mb-4">
-          <p className="text-secondary">
-            <span className="font-medium">Created:</span>{" "}
-            {formatDate(program.created_at)}
-          </p>
-        </div>
-      </div>
-
-      {/* Open button */}
-      {actionLoading === program.id ? (
-        <div className="mt-4 w-full py-2 text-center text-sm text-secondary">
-          Duplicating…
-        </div>
-      ) : (
-        <Link
-          href={`/coach/programs/${program.id}`}
-          className="mt-4 block w-full btn-primary text-center text-sm"
-        >
-          Open
-        </Link>
-      )}
+        {/* Metadata row */}
+        <p className="text-xs text-secondary">
+          {formatDate(program.created_at)}
+          {program.num_weeks
+            ? ` · ${program.num_weeks} week${program.num_weeks !== 1 ? "s" : ""}`
+            : program.is_ongoing
+            ? " · Ongoing"
+            : ""}
+          {program.workout_count != null
+            ? ` · ${program.workout_count} workout${program.workout_count !== 1 ? "s" : ""}`
+            : ""}
+        </p>
+      </Link>
     </div>
   );
 }
@@ -498,9 +498,6 @@ export function ProgramsPageContent({
   const [createMethod, setCreateMethod] = useState<"manual" | "import">(
     "manual"
   );
-  const [modalProgramType, setModalProgramType] = useState<
-    "strength" | "rehab"
-  >("strength");
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   // New Folder modal
@@ -1089,7 +1086,7 @@ export function ProgramsPageContent({
               </h2>
 
               {/* Toggle group 1 — creation method */}
-              <div className="mb-6">
+              <div className="mb-8">
                 <p className="text-xs font-medium text-secondary uppercase tracking-wider mb-3">
                   How do you want to create it?
                 </p>
@@ -1117,33 +1114,6 @@ export function ProgramsPageContent({
                 </div>
               </div>
 
-              {/* Toggle group 2 — program type */}
-              <div className="mb-8">
-                <p className="text-xs font-medium text-secondary uppercase tracking-wider mb-3">
-                  What type of program?
-                </p>
-                <div className="flex gap-2">
-                  {(["strength", "rehab"] as const).map((type) => {
-                    const label =
-                      type === "strength" ? "Strength Training" : "Rehab / PT";
-                    const selected = modalProgramType === type;
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => setModalProgramType(type)}
-                        className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium border transition-colors ${
-                          selected
-                            ? "bg-amber-400/10 border-amber-400 text-amber-400"
-                            : "bg-zinc-800/40 border-secondary/20 text-secondary hover:border-secondary/40"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               {/* Confirm */}
               <button
                 onClick={() => {
@@ -1153,7 +1123,6 @@ export function ProgramsPageContent({
                       ? "/coach/programs/create"
                       : "/coach/programs/import";
                   const qs_params = new URLSearchParams();
-                  if (modalProgramType === "rehab") qs_params.set("type", "rehab");
                   if (currentFolderId !== null)
                     qs_params.set("folder_id", String(currentFolderId));
                   const qs = qs_params.toString();

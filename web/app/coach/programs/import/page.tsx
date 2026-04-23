@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
+import ProgramDisplay, { parsedProgramToDisplay } from "@/components/ProgramDisplay";
 import { programApi, ParsedProgram } from "@/lib/api-endpoints";
 import { getAuthData } from "@/lib/auth";
 import { extractErrorMessage } from "@/lib/utils";
@@ -18,18 +19,6 @@ const FEEDBACK_OPTIONS = [
   "Workout days not separated correctly",
   "Coach notes or comments were lost",
   "Other",
-];
-
-const BODY_REGIONS = [
-  { key: "neck_upper_back", label: "Neck & Upper Back" },
-  { key: "shoulder", label: "Shoulder" },
-  { key: "elbow_wrist", label: "Elbow & Wrist" },
-  { key: "core_ribs", label: "Core & Ribs" },
-  { key: "lower_back", label: "Lower Back" },
-  { key: "hip", label: "Hip" },
-  { key: "knee", label: "Knee" },
-  { key: "lower_leg_shin", label: "Lower Leg & Shin" },
-  { key: "ankle_foot", label: "Ankle & Foot" },
 ];
 
 type PageState = "upload" | "preview" | "saving" | "error";
@@ -52,7 +41,6 @@ function ImportProgramContent() {
   const { user } = getAuthData();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const programType = searchParams.get("type") === "rehab" ? "rehab" : "strength";
   const folderIdParam = searchParams.get("folder_id");
   const folderId = folderIdParam ? parseInt(folderIdParam) : null;
 
@@ -75,29 +63,12 @@ function ImportProgramContent() {
   const [feedbackError, setFeedbackError] = useState("");
   const [feedbackOtherText, setFeedbackOtherText] = useState("");
 
-  const [importProgramType, setImportProgramType] = useState<"strength" | "rehab">(
-    searchParams.get("type") === "rehab" ? "rehab" : "strength"
-  );
-  const [importBodyRegions, setImportBodyRegions] = useState<string[]>([]);
-
-  // Track which workout cards are collapsed (empty = all expanded)
-  const [collapsedWorkouts, setCollapsedWorkouts] = useState<Set<number>>(
-    new Set()
-  );
+  const [importProgramType, setImportProgramType] = useState<"strength" | "rehab">("strength");
 
   const toggleFeedbackIssue = (label: string) => {
     setFeedbackIssues((prev) =>
       prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]
     );
-  };
-
-  const toggleWorkout = (idx: number) => {
-    setCollapsedWorkouts((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
-      return next;
-    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,7 +90,6 @@ function ImportProgramContent() {
       setParsedResult(result);
       setProgramName(result.program_name);
       setProgramDesc(result.description || "");
-      setCollapsedWorkouts(new Set());
       setPageState("preview");
       setShowFeedback(false);
     } catch (err: any) {
@@ -150,7 +120,6 @@ function ImportProgramContent() {
       setParsedResult(result);
       setProgramName(result.program_name);
       setProgramDesc(result.description || "");
-      setCollapsedWorkouts(new Set());
       setShowFeedback(false);
       setFeedbackIssues([]);
       setFeedbackText("");
@@ -173,9 +142,6 @@ function ImportProgramContent() {
         program_name: programName,
         description: programDesc || null,
         program_type: importProgramType,
-        body_regions: importProgramType === "rehab" && importBodyRegions.length > 0
-          ? importBodyRegions
-          : null,
         folder_id: folderId,
       });
       router.push("/coach/programs");
@@ -186,8 +152,7 @@ function ImportProgramContent() {
   };
 
   const exerciseCount =
-    parsedResult?.workouts.reduce((acc, w) => acc + w.exercises.length, 0) ??
-    0;
+    parsedResult?.workouts.reduce((acc, w) => acc + w.exercises.length, 0) ?? 0;
 
   // ── Saving state ─────────────────────────────────────────────────────────────
 
@@ -197,9 +162,7 @@ function ImportProgramContent() {
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-center">
             <Spinner />
-            <p className="text-text font-medium text-lg">
-              Saving your program...
-            </p>
+            <p className="text-text font-medium text-lg">Saving your program...</p>
           </div>
         </div>
       </AuthGuard>
@@ -215,9 +178,7 @@ function ImportProgramContent() {
           <div className="text-center">
             <Spinner />
             <p className="text-text font-medium text-lg">{loadingMsg}</p>
-            <p className="text-secondary text-sm mt-2">
-              This may take a few seconds
-            </p>
+            <p className="text-secondary text-sm mt-2">This may take a few seconds</p>
           </div>
         </div>
       </AuthGuard>
@@ -270,8 +231,7 @@ function ImportProgramContent() {
                 Import Program from Spreadsheet
               </h1>
               <p className="text-secondary mb-8">
-                Upload an Excel file and AI will automatically structure it into
-                a training program.
+                Upload an Excel file and AI will automatically structure it into a training program.
               </p>
 
               <label
@@ -286,18 +246,12 @@ function ImportProgramContent() {
                 {selectedFileName ? (
                   <>
                     <p className="text-text font-medium">{selectedFileName}</p>
-                    <p className="text-secondary text-sm mt-1">
-                      Click to change file
-                    </p>
+                    <p className="text-secondary text-sm mt-1">Click to change file</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-text font-medium">
-                      Click to choose a file
-                    </p>
-                    <p className="text-secondary text-sm mt-1">
-                      Accepts .xlsx and .pdf files
-                    </p>
+                    <p className="text-text font-medium">Click to choose a file</p>
+                    <p className="text-secondary text-sm mt-1">Accepts .xlsx and .pdf files</p>
                   </>
                 )}
               </label>
@@ -309,19 +263,16 @@ function ImportProgramContent() {
                 onChange={handleFileChange}
               />
 
-              {/* Program type toggle */}
               <div className="mt-6">
-                <label className="block text-sm font-medium text-text mb-2">
-                  Program Type
-                </label>
+                <label className="block text-sm font-medium text-text mb-2">Program Type</label>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setImportProgramType("strength")}
-                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm border transition-colors ${
                       importProgramType === "strength"
-                        ? "bg-primary text-background"
-                        : "bg-secondary/20 text-secondary hover:text-text"
+                        ? "border-primary text-primary bg-primary/10"
+                        : "border-secondary/30 text-secondary bg-zinc-800 hover:text-text"
                     }`}
                   >
                     Strength Training
@@ -329,10 +280,10 @@ function ImportProgramContent() {
                   <button
                     type="button"
                     onClick={() => setImportProgramType("rehab")}
-                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm border transition-colors ${
                       importProgramType === "rehab"
-                        ? "bg-primary text-background"
-                        : "bg-secondary/20 text-secondary hover:text-text"
+                        ? "border-amber-400 text-amber-400 bg-amber-400/10"
+                        : "border-secondary/30 text-secondary bg-zinc-800 hover:text-text"
                     }`}
                   >
                     Rehab / PT
@@ -340,42 +291,7 @@ function ImportProgramContent() {
                 </div>
               </div>
 
-              {/* Body regions — only shown for rehab */}
-              {importProgramType === "rehab" && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-text mb-1">
-                    Target Body Regions{" "}
-                    <span className="text-secondary font-normal">(select all that apply)</span>
-                  </label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {BODY_REGIONS.map((region) => {
-                      const selected = importBodyRegions.includes(region.key);
-                      return (
-                        <button
-                          key={region.key}
-                          type="button"
-                          onClick={() =>
-                            setImportBodyRegions((prev) =>
-                              selected
-                                ? prev.filter((k) => k !== region.key)
-                                : [...prev, region.key]
-                            )
-                          }
-                          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                            selected
-                              ? "border-amber-400 text-amber-400 bg-amber-400/10"
-                              : "border-secondary/30 text-secondary bg-background hover:border-secondary/60"
-                          }`}
-                        >
-                          {region.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-6">
+              <div className="mt-4">
                 <button
                   onClick={handleParse}
                   disabled={!selectedFileName}
@@ -422,92 +338,24 @@ function ImportProgramContent() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-text mb-2">
-                      Description
+                      Description &amp; When to Use
                     </label>
                     <textarea
                       value={programDesc}
                       onChange={(e) => setProgramDesc(e.target.value)}
                       className="input-field min-h-[80px]"
                     />
+                    <p className="mt-1.5 text-xs text-secondary">
+                      For rehab programs: describe symptoms and situations where this plan is
+                      appropriate. This helps match the right program to injured athletes
+                      automatically.
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* Workout cards */}
-              {parsedResult.workouts.map((workout, wi) => (
-                <div key={wi} className="card">
-                  <button
-                    onClick={() => toggleWorkout(wi)}
-                    className="w-full flex justify-between items-start text-left"
-                  >
-                    <div>
-                      <h3 className="text-lg font-heading font-bold text-text">
-                        {workout.name}
-                      </h3>
-                      {workout.description && (
-                        <p className="text-secondary text-sm mt-0.5">
-                          {workout.description}
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-secondary text-xs ml-4 mt-1 flex-shrink-0">
-                      {collapsedWorkouts.has(wi) ? "▼ Show" : "▲ Hide"}
-                    </span>
-                  </button>
-
-                  {!collapsedWorkouts.has(wi) && (
-                    <div className="mt-4">
-                      {workout.exercises.length === 0 ? (
-                        <p className="text-secondary text-sm italic">
-                          No exercises parsed for this session.
-                        </p>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b border-secondary/20">
-                                <th className="text-left text-secondary font-medium pb-2 pr-3">
-                                  Exercise
-                                </th>
-                                <th className="text-center text-secondary font-medium pb-2 px-2 w-14">
-                                  Sets
-                                </th>
-                                <th className="text-center text-secondary font-medium pb-2 px-2 w-14">
-                                  Reps
-                                </th>
-                                <th className="text-left text-secondary font-medium pb-2 pl-3">
-                                  Notes
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {workout.exercises.map((ex, ei) => (
-                                <tr
-                                  key={ei}
-                                  className="border-b border-secondary/10 last:border-0"
-                                >
-                                  <td className="py-2 pr-3 text-text font-medium">
-                                    {ex.name}
-                                  </td>
-                                  <td className="py-2 px-2 text-center text-secondary">
-                                    {ex.sets}
-                                  </td>
-                                  <td className="py-2 px-2 text-center text-secondary">
-                                    {ex.reps}
-                                  </td>
-                                  <td className="py-2 pl-3 text-secondary text-xs">
-                                    {ex.coach_notes || "—"}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+              {/* Program preview using ProgramDisplay */}
+              <ProgramDisplay program={parsedProgramToDisplay(parsedResult)} mode="preview" />
 
               {/* Feedback panel — overlays preview, does not replace it */}
               {showFeedback && (
@@ -516,16 +364,13 @@ function ImportProgramContent() {
                     What needs to be fixed?
                   </h3>
                   <p className="text-secondary text-sm mb-4">
-                    Select all that apply — the AI will re-parse your
-                    spreadsheet with these corrections in mind.
+                    Select all that apply — the AI will re-parse your spreadsheet with these
+                    corrections in mind.
                   </p>
 
                   <div className="space-y-2 mb-4">
                     {FEEDBACK_OPTIONS.map((option) => (
-                      <label
-                        key={option}
-                        className="flex items-center gap-3 cursor-pointer"
-                      >
+                      <label key={option} className="flex items-center gap-3 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={feedbackIssues.includes(option)}

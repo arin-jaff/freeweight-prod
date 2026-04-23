@@ -504,6 +504,8 @@ def get_notifications(
             program_name=program_name,
             message=n.message,
             notification_type=n.notification_type,
+            confidence=n.confidence,
+            candidate_programs=n.candidate_programs,
             is_read=n.is_read,
             created_at=n.created_at,
             body_region=body_region,
@@ -562,6 +564,82 @@ def mark_notification_read(
     return {"message": "Notification marked as read"}
 
 
+# ─── Rehab Programs (lightweight list for reassignment picker) ───────────────
+
+@router.get("/rehab-programs")
+def list_rehab_programs(
+    current_coach: User = Depends(get_current_coach),
+    db: Session = Depends(get_db)
+):
+    """Return all non-archived rehab programs for the current coach."""
+    programs = db.query(Program).filter(
+        Program.coach_id == current_coach.id,
+        Program.program_type == "rehab",
+        Program.archived == False,
+    ).order_by(Program.name).all()
+
+    return [
+        {"id": p.id, "name": p.name, "description": p.description}
+        for p in programs
+    ]
+
+
+class ReassignRequest(BaseModel):
+    new_program_id: int
+
+
+@router.patch("/notifications/{notification_id}/reassign")
+def reassign_notification_program(
+    notification_id: int,
+    data: ReassignRequest,
+    current_coach: User = Depends(get_current_coach),
+    db: Session = Depends(get_db)
+):
+    """Swap the auto-assigned rehab program on a notification for a different one."""
+    notification = db.query(Notification).filter(
+        Notification.id == notification_id
+    ).first()
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    if notification.coach_id != current_coach.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if notification.program_id is None:
+        raise HTTPException(status_code=400, detail="Notification has no auto-assigned program to replace")
+
+    new_program = db.query(Program).filter(
+        Program.id == data.new_program_id,
+        Program.coach_id == current_coach.id,
+        Program.program_type == "rehab",
+    ).first()
+    if not new_program:
+        raise HTTPException(status_code=404, detail="Rehab program not found or does not belong to you")
+
+    # Delete existing assignment for this athlete + old program
+    db.query(ProgramAssignment).filter(
+        ProgramAssignment.program_id == notification.program_id,
+        ProgramAssignment.athlete_id == notification.athlete_id,
+    ).delete(synchronize_session=False)
+
+    # Create new assignment
+    db.add(ProgramAssignment(
+        program_id=new_program.id,
+        athlete_id=notification.athlete_id,
+        start_date=datetime.now(timezone.utc),
+    ))
+
+    # Update notification
+    notification.program_id = new_program.id
+    notification.notification_type = "rehab_assigned"
+
+    db.commit()
+
+    return {
+        "message": "Program reassigned successfully",
+        "new_program_id": new_program.id,
+        "new_program_name": new_program.name,
+    }
+
+
 # ─── Program Import (from AI parse) ───────────────────────────────────────────
 
 class ImportExercise(BaseModel):
@@ -571,11 +649,15 @@ class ImportExercise(BaseModel):
     coach_notes: Optional[str] = None
     order: int
     rest_seconds: Optional[int] = None
+    group_label: Optional[str] = None
+    video_url: Optional[str] = None
 
 
 class ImportWorkout(BaseModel):
     name: str
-    day_offset: int
+    day_offset: int = 0
+    week_number: Optional[int] = None
+    day_label: Optional[str] = None
     description: Optional[str] = None
     exercises: List[ImportExercise]
 
@@ -586,6 +668,11 @@ class ImportProgramRequest(BaseModel):
     workouts: List[ImportWorkout]
     program_type: Optional[str] = "strength"
     body_regions: Optional[List[str]] = None
+    num_weeks: Optional[int] = 1
+    day_mode: Optional[str] = "offset"
+    folder_id: Optional[int] = None
+    is_ongoing: Optional[bool] = False
+    same_every_week: Optional[bool] = False
 
 
 @router.post("/programs/import")
@@ -601,6 +688,11 @@ def import_program(
         coach_id=current_coach.id,
         program_type=data.program_type or "strength",
         body_regions=data.body_regions or None,
+        num_weeks=data.num_weeks if not data.is_ongoing else None,
+        day_mode=data.day_mode or "offset",
+        folder_id=data.folder_id,
+        is_ongoing=data.is_ongoing or False,
+        same_every_week=data.same_every_week or False,
     )
     db.add(program)
     db.flush()  # get program.id before creating workouts
@@ -613,6 +705,8 @@ def import_program(
             program_id=program.id,
             name=w_data.name,
             day_offset=w_data.day_offset,
+            week_number=w_data.week_number,
+            day_label=w_data.day_label,
             description=w_data.description,
             scheduled_date=now + timedelta(days=w_data.day_offset),
         )
@@ -628,6 +722,8 @@ def import_program(
                 coach_notes=e_data.coach_notes,
                 order=e_data.order,
                 rest_seconds=e_data.rest_seconds,
+                group_label=e_data.group_label,
+                video_url=e_data.video_url,
             )
             db.add(exercise)
             exercise_count += 1

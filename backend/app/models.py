@@ -169,6 +169,10 @@ class Program(Base):
     body_regions = Column(ARRAY(String), nullable=True)  # Only set when program_type == "rehab"
     folder_id = Column(Integer, ForeignKey("folders.id"), nullable=True)
     order = Column(Integer, nullable=False, server_default="0")
+    num_weeks = Column(Integer, nullable=True, default=1)  # Total weeks in program
+    day_mode = Column(String, nullable=True, default="offset")  # "offset" or "weekday"
+    is_ongoing = Column(Boolean, nullable=False, default=False, server_default="false")  # No fixed end date
+    same_every_week = Column(Boolean, nullable=False, default=False, server_default="false")  # Single week repeated
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -201,6 +205,8 @@ class Workout(Base):
     name = Column(String, nullable=False)
     scheduled_date = Column(DateTime(timezone=True), nullable=False)
     day_offset = Column(Integer, nullable=True)  # Days from program start for template workouts
+    week_number = Column(Integer, nullable=True)  # 1-indexed week within program
+    day_label = Column(String, nullable=True)  # "Monday" or "Day 1"
     description = Column(Text, nullable=True)  # Purpose/rationale of the workout
     athlete_modified = Column(Boolean, default=False)  # True if athlete edited a coach-assigned workout
     modification_notes = Column(Text, nullable=True)  # What the athlete changed
@@ -223,6 +229,7 @@ class Exercise(Base):
     video_url = Column(String, nullable=True)
     coach_notes = Column(Text, nullable=True)
     rest_seconds = Column(Integer, nullable=True)  # Rest time between sets in seconds (default: 90)
+    group_label = Column(String, nullable=True)  # Section/superset group, e.g. "Strength 1"
     order = Column(Integer, nullable=False)  # Order within workout
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -244,6 +251,7 @@ class WorkoutLog(Base):
     flag_reason = Column(Text, nullable=True)
     body_region = Column(String, nullable=True)      # One of BODY_REGIONS; set when flagged with injury
     body_region_detail = Column(Text, nullable=True) # Free-text specificity, e.g. "IT band", "ACL"
+    rehab_target = Column(Text, nullable=True)       # Athlete's free-text rehab goal; set when opt_in_rehab is True
     coach_acknowledged = Column(Boolean, default=False)
     coach_response = Column(Text, nullable=True)
     acknowledged_at = Column(DateTime(timezone=True), nullable=True)
@@ -280,7 +288,9 @@ class Notification(Base):
     workout_log_id = Column(Integer, ForeignKey("workout_logs.id"), nullable=True)
     program_id = Column(Integer, ForeignKey("programs.id"), nullable=True)
     message = Column(Text, nullable=False)
-    notification_type = Column(String, nullable=False)  # "rehab_assigned" or "injury_no_rehab"
+    notification_type = Column(String, nullable=False)  # "rehab_assigned", "rehab_assigned_review", or "injury_no_rehab"
+    confidence = Column(String, nullable=True)           # AI match confidence: "high", "medium", "low", or null
+    candidate_programs = Column(ARRAY(String), nullable=True)  # Ambiguous program names for medium-confidence matches
     is_read = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
